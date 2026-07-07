@@ -1,0 +1,16 @@
+# ============================================================
+#  Files git should NEVER track
+# ============================================================
+
+# Secrets — the #1 rule: never commit real API keys
+.env
+
+# Python virtual environment (huge, machine-specific — rebuild with requirements.txt)
+.venv/
+
+# Python bytecode cache
+__pycache__/
+*.pyc
+
+# OS / editor junk
+.DS_Store
