@@ -5,13 +5,10 @@ build-backend = "hatchling.build"
 [project]
 name = "travel-planner"
 version = "0.1.0"
-description = "Multi-agent travel planner built on LangGraph"
+description = "AI Travel Planner — flight search and more"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "langgraph>=1.2",
-    "langchain-core>=1.4",
-    "langchain-groq>=1.1",
     "pydantic>=2.13",
     "python-dotenv>=1.2",
     "fastapi>=0.139",
@@ -20,7 +17,6 @@ dependencies = [
 ]
 
 [project.scripts]
-travel-planner = "travel_planner.cli:main"
 travel-planner-web = "travel_planner.api.app:main"
 
 [tool.hatch.build.targets.wheel]
