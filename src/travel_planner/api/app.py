@@ -1,5 +1,5 @@
 """
-server.py — web app around the multi-agent graph, with login + a structured form.
+app.py — web app around the multi-agent graph, with login + a structured form.
 
 Routes:
   GET  /login        -> login / sign-up page
@@ -11,7 +11,7 @@ Routes:
   POST /api/plan     -> run the agent graph (requires login)
   /static/*          -> static assets
 
-Run:  python server.py      (or:  uvicorn server:app --reload)
+Run:  travel-planner-web      (or:  uvicorn travel_planner.api.app:app --reload)
 """
 
 from __future__ import annotations
@@ -28,9 +28,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
 
-import auth
-import geo
-from graph import build_graph
+from travel_planner.api import auth
+from travel_planner.graph import build_graph
+from travel_planner.services import geo
 
 HERE = Path(__file__).parent
 app = FastAPI(title="Multi-Agent Travel Planner")
@@ -67,7 +67,7 @@ def _current_user(request: Request) -> str | None:
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page() -> str:
-    return (HERE / "login.html").read_text(encoding="utf-8")
+    return (HERE / "templates" / "login.html").read_text(encoding="utf-8")
 
 
 @app.post("/api/register")
@@ -210,7 +210,7 @@ def index(request: Request):
     # Signed-in users get the planner; everyone else is sent to sign in.
     if not _current_user(request):
         return RedirectResponse(url="/login", status_code=302)
-    return HTMLResponse((HERE / "index.html").read_text(encoding="utf-8"))
+    return HTMLResponse((HERE / "templates" / "index.html").read_text(encoding="utf-8"))
 
 
 # Which node just finished -> a friendly line for the live progress panel.
@@ -333,6 +333,10 @@ def _serialize(state) -> dict:
     }
 
 
-if __name__ == "__main__":
+def main() -> None:
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
+
+
+if __name__ == "__main__":
+    main()

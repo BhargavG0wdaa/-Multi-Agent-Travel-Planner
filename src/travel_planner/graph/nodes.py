@@ -1,5 +1,5 @@
 """
-agents.py — one function per node in the graph.
+nodes.py — one function per node in the graph.
 
 Contract for EVERY node:  def node(state: TripState) -> dict
 Read what you need, do your job, return ONLY the keys you changed.
@@ -14,12 +14,12 @@ from datetime import date, timedelta
 
 from pydantic import BaseModel, Field
 
-from state import (
+from travel_planner.graph.state import (
     TripState, TripSpec, AllocationMap,
     TransportPlan, StayOption, DayForecast, DayPlan,
 )
-from llm import get_llm
-import geo
+from travel_planner.llm import get_llm
+from travel_planner.services import geo
 
 
 def _trip_days(spec: TripSpec) -> list[date]:
@@ -218,7 +218,7 @@ def resolver_node(state: TripState) -> dict:
     }
 
 
-# ---------- assemble (used by the CLI run in graph.py) ----------
+# ---------- assemble (used by the CLI demo in cli.py) ----------
 
 def assemble_node(state: TripState) -> dict:
     spec = state["spec"]

@@ -7,7 +7,7 @@ Security essentials shown here (these matter — take them seriously):
     still get different stored hashes.
   - Verification uses a constant-time comparison to avoid timing attacks.
 
-SQLite is a full SQL database that lives in a single file (users.db). No server
+SQLite is a full SQL database that lives in a single file (data/users.db). No server
 to install — perfect for learning. That file is git-ignored so user data never
 gets committed.
 """
@@ -19,11 +19,13 @@ import os
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(__file__).parent / "users.db"
+# Relative to where the app is started (the project root); override with TRAVEL_PLANNER_DB.
+DB_PATH = Path(os.getenv("TRAVEL_PLANNER_DB", "data/users.db"))
 _ITERATIONS = 200_000          # PBKDF2 work factor: higher = slower to brute-force
 
 
 def _connect() -> sqlite3.Connection:
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row      # lets us read columns by name
     return conn

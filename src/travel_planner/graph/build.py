@@ -1,14 +1,14 @@
 """
-graph.py — wire the nodes into a graph, compile it, and run it.
+build.py — wire the nodes into a graph and compile it.
 
-Run it with:  python graph.py   (a CLI demo; the web app uses server.py)
+Used by the CLI demo (travel_planner.cli) and the web app (travel_planner.api.app).
 """
 
 from __future__ import annotations
 from langgraph.graph import StateGraph, START, END
 
-from state import TripState
-from agents import (
+from travel_planner.graph.state import TripState
+from travel_planner.graph.nodes import (
     intake_node, budget_node,
     transport_node, lodging_node, weather_node, itinerary_node,
     resolver_node, assemble_node, MAX_REVISIONS,
@@ -47,21 +47,3 @@ def build_graph():
 
     return builder.compile()
 
-
-if __name__ == "__main__":
-    graph = build_graph()
-
-    # Structured input now (the web form provides this in the app).
-    initial_state = {
-        "raw": {
-            "origin": "Mumbai",
-            "destination": "Goa",
-            "days": 5,
-            "budget": 30000,
-            "transport_mode": "train",
-        }
-    }
-
-    print("--- running graph ---")
-    final_state = graph.invoke(initial_state)
-    print("\n" + final_state["final_plan"])

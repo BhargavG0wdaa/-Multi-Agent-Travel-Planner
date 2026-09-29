@@ -8,7 +8,7 @@ not every agent.
 
 from langchain_groq import ChatGroq
 
-import config
+from travel_planner import config
 
 
 def get_llm(temperature: float = 0.0):

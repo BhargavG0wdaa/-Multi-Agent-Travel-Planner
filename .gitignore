@@ -7,8 +7,9 @@
 
 # Local database (user accounts) — never commit user data
 *.db
+data/
 
-# Python virtual environment (huge, machine-specific — rebuild with requirements.txt)
+# Python virtual environment (huge, machine-specific — rebuild with `pip install -e .`)
 .venv/
 
 # Python bytecode cache
@@ -17,3 +18,8 @@ __pycache__/
 
 # OS / editor junk
 .DS_Store
+
+# Build / install artifacts
+*.egg-info/
+dist/
+build/
