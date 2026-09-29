@@ -543,7 +543,8 @@ function renderResults() {
       <div class="price"><div class="amt">${o.original_currency ? "≈ " : ""}${money(o.price, o.currency)}</div>
         <div class="per">total${paxTotal() > 1 ? ` · ${paxTotal()} travellers` : ""}</div>
         ${o.original_currency ? `<div class="orig" title="The airline charges in ${esc(o.original_currency)}; INR is an estimate at today's exchange rate">
-          from ${money(o.original_price, o.original_currency)}</div>` : ""}</div>
+          from ${money(o.original_price, o.original_currency)}</div>` : ""}
+        <button type="button" class="btn-select" data-sel="${esc(o.id)}">Select</button></div>
       <button type="button" class="more" data-k="${k}" aria-expanded="false">Flight details ▾</button>
       <div class="details" hidden>${detailsHtml(o)}</div></article>`).join("")
     : `<div class="card state">${offers.length
@@ -557,6 +558,7 @@ function renderResults() {
     page = +b.dataset.page; renderResults();
     $("results").scrollIntoView({ behavior: "smooth", block: "start" });
   });
+  $("results").querySelectorAll("[data-sel]").forEach(b => b.onclick = () => startBooking(b.dataset.sel));
   $("results").querySelectorAll(".more").forEach(b => b.onclick = () => {
     const d = b.nextElementSibling, open = d.hidden;
     d.hidden = !open; b.setAttribute("aria-expanded", open);
@@ -569,6 +571,7 @@ renderRows();
 // Home / logo / "Back to flights": a fresh flight search, from any tab.
 function goHome() {
   closePop();
+  exitBooking();
   Object.assign(S, freshState());
   document.querySelector("input[name=trip][value=oneway]").checked = true;
   document.querySelector("input[name=fare][value=regular]").checked = true;

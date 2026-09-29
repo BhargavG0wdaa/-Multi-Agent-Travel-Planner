@@ -105,7 +105,7 @@ def _page() -> str:
     """The page shell with each built tab's section filled in. `v` changes when
     a tab's CSS/JS changes, so browsers fetch the new file instead of a cached one."""
     fa = flight_agent.HERE
-    v = int(max((fa / "static" / f).stat().st_mtime for f in ("flights.css", "flights.js")))
+    v = int(max((fa / "static" / f).stat().st_mtime for f in ("flights.css", "flights.js", "booking.css", "booking.js")))
     shell = (HERE / "templates" / "index.html").read_text(encoding="utf-8")
     flights = (fa / "templates" / "flights.html").read_text(encoding="utf-8")
     return shell.replace("{{ v }}", str(v)).replace("{{ flights }}", flights)
