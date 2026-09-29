@@ -353,7 +353,7 @@ function showPayment() {
   const total = B.offer.price + seatTotal(), cur = B.offer.currency;
   $("booking").innerHTML = `<div class="card rzp" role="dialog" aria-labelledby="rzpTitle">
     <div class="rzp-head">
-      <div class="rzp-brand"><span class="rzp-mark" aria-hidden="true">₹</span><b id="rzpTitle">Razorpay</b><span class="rzp-demo">DEMO</span></div>
+      <div class="rzp-brand"><span class="rzp-mark" aria-hidden="true">₹</span><b id="rzpTitle">Razorpay</b></div>
       <div class="rzp-merchant">AI Travel Planner</div>
     </div>
     <div class="rzp-body">
@@ -362,7 +362,6 @@ function showPayment() {
       <div class="rzp-qr"><img src="/flights/static/demo-qr.svg" alt="Demo UPI QR code" width="210" height="210" /></div>
       <p class="rzp-scan">Scan & pay with any UPI app</p>
       <p class="rzp-timer" id="rzpTimerRow">QR code expires in <b id="rzpTimer">${PAY_MINUTES}:00</b></p>
-      <p class="rzp-note">Demo payment screen: scanning this code does nothing and no money is charged.</p>
       <button type="button" class="rzp-continue" id="rzpContinue">Continue</button>
       <button type="button" class="bk-link rzp-cancel" data-go="cancel-pay">Cancel payment</button>
     </div></div>`;
