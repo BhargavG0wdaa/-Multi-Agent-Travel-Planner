@@ -81,7 +81,14 @@ def suggest_places(query: str) -> list[dict]:
                 if (p["type"], p["code"]) not in seen:
                     seen.add((p["type"], p["code"]))
                     results.append(p)
-        _place_cache[q] = results[:8]
+        # Duffel puts Genoa (code GOA) above Goa for "goa"; exact city names win,
+        # then exact codes, then name prefixes. Ties go to Indian airports (the
+        # app is India-first); sorted() is stable, so alias matches stay ahead.
+        def rank(p):
+            city = (p["city"] or "").lower()
+            match = 0 if city == q else 1 if (p["code"] or "").lower() == q else 2 if city.startswith(q) else 3
+            return match, p["country"] != "IN"
+        _place_cache[q] = sorted(results, key=rank)[:8]
     return _place_cache[q]
 
 

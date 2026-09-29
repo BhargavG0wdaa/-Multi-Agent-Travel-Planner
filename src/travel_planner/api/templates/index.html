@@ -286,10 +286,10 @@
 <body>
 <header class="nav">
   <div class="navbar">
-    <a class="logo" href="#"><span class="go">AI</span>&nbsp;<span class="ex">Travel Planner</span></a>
+    <a class="logo" href="#" data-home><span class="go">AI</span>&nbsp;<span class="ex">Travel Planner</span></a>
     <nav class="cats" id="cats" aria-label="Travel categories"></nav>
     <nav class="navlinks">
-      <a href="#">Home</a>
+      <a href="#" data-home>Home</a>
       <a href="#" id="logout" class="btn-navy">Log out</a>
     </nav>
   </div>
@@ -330,7 +330,7 @@
     <span class="badge">Coming soon</span>
     <h1 id="soonTitle"></h1>
     <p class="sub" id="soonText"></p>
-    <a href="#" class="btn-navy">Back to flights</a>
+    <a href="#" class="btn-navy" data-home>Back to flights</a>
   </div>
 </div>
 
@@ -401,13 +401,15 @@
   const shortDate = s => parse(s).toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" });
 
   // ---- the whole form lives in one state object; renderRows() draws it ----
-  const S = {
+  // From/To start empty: the traveller picks both cities.
+  const freshState = () => ({
     trip: "oneway",                       // oneway | round | multi
-    legs: [{ from: POPULAR[0], to: POPULAR[1], date: addDays(TODAY, 7) }],
+    legs: [{ from: null, to: null, date: addDays(TODAY, 7) }],
     ret: null,                            // return date (round trip only)
     adults: 1, children: 0, infants: 0,
     cabin: "economy",
-  };
+  });
+  const S = freshState();
 
   const paxTotal = () => S.adults + S.children + S.infants;
   function paxText() {
@@ -805,6 +807,21 @@
     window.scrollTo(0, 0);
   }
   window.addEventListener("hashchange", showView);
+
+  // Home / logo / "Back to flights": a fresh flight search, from any tab.
+  function goHome() {
+    closePop();
+    Object.assign(S, freshState());
+    document.querySelector("input[name=trip][value=oneway]").checked = true;
+    document.querySelector("input[name=fare][value=regular]").checked = true;
+    offers = []; sortBy = "price"; nonstopOnly = false; lastQuery = null;
+    $("results").innerHTML = "";
+    renderRows();
+    // Drop "#hotels" etc. from the URL; Back still returns to that tab.
+    if (location.hash) history.pushState(null, "", location.pathname);
+    showView();
+  }
+  document.querySelectorAll("[data-home]").forEach(a => a.onclick = e => { e.preventDefault(); goHome(); });
 
   // logout
   $("logout").onclick = async e => {
