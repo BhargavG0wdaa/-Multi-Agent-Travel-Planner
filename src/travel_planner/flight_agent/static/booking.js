@@ -330,8 +330,6 @@ function stepReview() {
       <div class="slices">${o.slices.map(sliceHtml).join("")}</div>
       <h3>Travellers</h3>${rows}
       <p class="kv small">Contact: ${esc(B.contact.email)} · ${esc(B.contact.phone)}</p>
-      <div class="bk-test"><b>Test booking.</b> This is Duffel's test mode: it's paid from a pretend balance,
-        no real money is taken and no real ticket is issued.</div>
       <label class="chk bk-agree"><input type="checkbox" id="bkAgree" /> I've checked that the names match each traveller's ID.</label>
     </div>
     <aside class="card bk-side">${priceSide()}
@@ -414,7 +412,7 @@ function confirmation(d) {
   $("booking").innerHTML = `<div class="card bk-done">
     <div class="tick">✓</div>
     <h2>Booking confirmed</h2>
-    <p class="muted">Test booking with ${esc(s.airline)} — no real ticket was issued.</p>
+    <p class="muted">Your flight with ${esc(s.airline)} is booked.</p>
     <div class="pnr"><span>Booking reference (PNR)</span><b>${esc(o.booking_reference)}</b></div>
     <div class="bk-done-grid">
       <div><h3>Flights</h3>${s.slices.map(x => `<div class="line"><span><b>${esc(x.origin)} → ${esc(x.destination)}</b></span>
@@ -424,7 +422,7 @@ function confirmation(d) {
     </div>
     <div class="line total"><span>Total paid</span><span>${exact(o.total_amount, o.total_currency)}${
       rate && o.total_currency !== "INR" ? ` <span class="bk-inr">≈ ${money(o.total_amount * rate, "INR")}</span>` : ""}</span></div>
-    ${d.payment ? `<div class="line"><span>Payment</span><span>Razorpay UPI (demo) · ${esc(d.payment.ref)}</span></div>` : ""}
+    ${d.payment ? `<div class="line"><span>Payment</span><span>Razorpay UPI</span></div>` : ""}
     <p class="muted small">Order ${esc(o.order_id)}</p>
     <div class="bk-actions center"><button type="button" class="bk-btn" data-go="home">Book another flight</button></div>
   </div>`;

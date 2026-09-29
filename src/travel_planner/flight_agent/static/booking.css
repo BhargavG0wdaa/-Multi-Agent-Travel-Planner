@@ -100,8 +100,7 @@ button.sb:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px;
 .ferr { color: #b3261e; font-size: 13px; margin-top: 6px; min-height: 0; }
 
 /* review */
-.bk-test { margin-top: 16px; padding: 12px 14px; border-radius: 12px; background: #fff8e6; color: #6b4a00; font-size: 14px; }
-.bk-agree { margin-top: 14px; }
+.bk-agree { margin-top: 16px; }
 .bk-agree.bad { color: #b3261e; }
 .bk-fail { margin-top: 10px; }
 
