@@ -65,6 +65,29 @@
     border-radius: 999px; font-weight: 600; font-size: 14px; transition: background .15s, transform .15s; }
   .btn-navy:hover { background: #0e3358; transform: translateY(-1px); }
 
+  /* ---- category tabs (second header row) ---- */
+  .cats { max-width: 960px; margin: 0 auto; padding: 0 12px; display: flex; gap: 2px;
+    overflow-x: auto; scrollbar-width: none; }
+  .cats::-webkit-scrollbar { display: none; }
+  .cat { flex: 1 1 0; min-width: 86px; display: flex; flex-direction: column; align-items: center;
+    gap: 5px; padding: 8px 6px 9px; color: var(--ink-2); text-decoration: none; text-align: center;
+    font-size: 12.5px; font-weight: 500; line-height: 1.25;
+    border-bottom: 3px solid transparent; transition: color .15s, border-color .15s; }
+  .cat svg { width: 26px; height: 26px; flex: none; }
+  .cat:hover { color: var(--accent-deep); }
+  .cat.active { color: var(--accent-deep); border-bottom-color: var(--accent); font-weight: 600; }
+  .cat:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 6px; }
+
+  /* ---- "coming soon" panel for categories not built yet ---- */
+  .soon { text-align: center; padding: 48px 24px; }
+  .soon-ico { width: 64px; height: 64px; margin: 0 auto 14px; display: grid; place-items: center;
+    border-radius: 18px; color: var(--accent-deep);
+    background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .soon-ico svg { width: 34px; height: 34px; }
+  .soon h1 { margin: 10px 0 8px; }
+  .soon .sub { margin-bottom: 24px; }
+  .soon .btn-navy { display: inline-block; text-decoration: none; }
+
   header.hero-head { text-align: center; margin-bottom: 26px; }
   .badge { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .11em;
     text-transform: uppercase; color: var(--accent-deep);
@@ -214,12 +237,13 @@
   <div class="navbar">
     <a class="logo" href="/"><span class="go">AI</span>&nbsp;<span class="ex">Travel Planner</span></a>
     <nav class="navlinks">
-      <a href="/">Home</a>
+      <a href="#">Home</a>
       <a href="#" id="logout" class="btn-navy">Log out</a>
     </nav>
   </div>
+  <nav class="cats" id="cats" aria-label="Travel categories"></nav>
 </header>
-<div class="wrap">
+<div class="wrap" id="view-planner">
   <header class="hero-head">
     <span class="badge">Multi-Agent · LangGraph</span>
     <h1>Plan your perfect trip</h1>
@@ -298,6 +322,16 @@
 
   <div id="error" class="card" style="display:none"><span class="err"></span></div>
   <footer>Budget is a hard constraint enforced in code · itinerary is LLM-generated</footer>
+</div>
+
+<div class="wrap" id="view-category" hidden>
+  <div class="card soon">
+    <div class="soon-ico" id="soonIco"></div>
+    <span class="badge">Coming soon</span>
+    <h1 id="soonTitle"></h1>
+    <p class="sub" id="soonText"></p>
+    <a href="#" class="btn-navy">Back to the trip planner</a>
+  </div>
 </div>
 
 <script>
@@ -629,6 +663,59 @@
       } catch (_) { /* keep placeholder */ }
     }
   }
+
+  // ---- category tabs + views (hash routing: #flights, #hotels, ...; empty = planner) ----
+  // Line icons, drawn with currentColor so the active tab tints them.
+  const ICONS = {
+    plane: '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
+    hotel: '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4M10 10h4M10 14h4M10 18h4"/>',
+    home:  '<path d="M3 10a2 2 0 0 1 .7-1.5l7-6a2 2 0 0 1 2.6 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/>',
+    beach: '<path d="M21 11a9 9 0 0 0-18 0Z"/><path d="M12 11v8.5"/><path d="M12 2v0"/><path d="M3 21c2-1.3 4-1.3 6 0s4 1.3 6 0 4-1.3 6 0"/>',
+    train: '<path d="M9 19c-2.8 0-5-2.2-5-5V9a7 7 0 0 1 16 0v5c0 2.8-2.2 5-5 5Z"/><path d="M8 3.5V7a4 4 0 0 0 8 0V3.5"/><path d="m9 15-1-1M15 15l1-1M8 19l-2 3M16 19l2 3"/>',
+    bus:   '<path d="M8 6v6M15 6v6M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2s-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/>',
+    cab:   '<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/><path d="M8 7V4.5h4V7"/>',
+    balloon: '<path d="M12 2a6.5 6.5 0 0 0-6.5 6.5c0 3.6 3 6 4.3 8h4.4c1.3-2 4.3-4.4 4.3-8A6.5 6.5 0 0 0 12 2Z"/><path d="M12 2c-1.8 1.7-2.6 4-2.6 6.5 0 3 .9 5.9 1.4 8M12 2c1.8 1.7 2.6 4 2.6 6.5 0 3-.9 5.9-1.4 8"/><path d="M10 16.5v2M14 16.5v2"/><rect x="10" y="18.5" width="4" height="3" rx=".6"/>',
+  };
+  const svg = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
+
+  // One entry per tab. To build a category, give it its own view and drop its "soon" text.
+  const CATEGORIES = [
+    { id: "flights",  label: "Flights",             icon: "plane",   soon: "Search and compare flights between any two cities, with fares that feed straight into your trip budget." },
+    { id: "hotels",   label: "Hotels",              icon: "hotel",   soon: "Find hotels by area, price and rating, and see how each one fits your lodging budget." },
+    { id: "homestays",label: "Homestays & Villas",  icon: "home",    soon: "Browse homestays and villas for longer stays, families and groups." },
+    { id: "packages", label: "Holiday Packages",    icon: "beach",   soon: "Ready-made holiday packages that bundle travel, stay and activities." },
+    { id: "trains",   label: "Trains",              icon: "train",   soon: "Look up trains and classes between Indian cities and estimate fares." },
+    { id: "buses",    label: "Buses",               icon: "bus",     soon: "Find intercity bus routes and operators for short hops." },
+    { id: "cabs",     label: "Cabs",                icon: "cab",     soon: "Estimate cab fares for airport transfers and outstation trips." },
+    { id: "tours",    label: "Tours & Attractions", icon: "balloon", soon: "Discover tours, tickets and attractions at your destination." },
+  ];
+
+  $("cats").innerHTML = CATEGORIES.map(c =>
+    `<a class="cat" href="#${c.id}" data-cat="${c.id}">${svg(c.icon)}<span>${c.label}</span></a>`).join("");
+
+  function showView() {
+    const id = location.hash.slice(1);
+    const cat = CATEGORIES.find(c => c.id === id);
+    document.querySelectorAll(".cat").forEach(a =>
+      a.classList.toggle("active", !!cat && a.dataset.cat === cat.id));
+    $("view-planner").hidden = !!cat;
+    $("view-category").hidden = !cat;
+    if (cat) {
+      // On narrow screens the tab row scrolls; bring the selected tab into view.
+      document.querySelector(`.cat[data-cat="${cat.id}"]`)
+        .scrollIntoView({ block: "nearest", inline: "center" });
+      $("soonIco").innerHTML = svg(cat.icon);
+      $("soonTitle").textContent = cat.label;
+      $("soonText").textContent = cat.soon;
+      document.title = `${cat.label} · AI Travel Planner`;
+    } else {
+      document.title = "AI Travel Planner";
+    }
+    window.scrollTo(0, 0);
+  }
+  window.addEventListener("hashchange", showView);
+  showView();
 
   // logout
   $("logout").onclick = async e => {
