@@ -129,6 +129,7 @@ def _offer(o: dict) -> dict:
             "duration_min": _minutes(s.get("duration")),
             "stops": max(len(segs) - 1, 0),
             "segments": [{
+                "id": g.get("id"),
                 "carrier": _carrier(g.get("marketing_carrier")),
                 "operator": _carrier(g.get("operating_carrier")),
                 "flight_number": g.get("marketing_carrier_flight_number"),
@@ -153,9 +154,11 @@ def search_flights(legs: list[dict], *, adults: int = 1, children: int = 0, infa
                    cabin: str = "economy", student: bool = False,
                    max_connections: int | None = None) -> list[dict]:
     """Priced offers for one or more legs ({origin, destination, date}), cheapest first."""
+    # Types, not ages: with an age, Duffel requires the date of birth at booking
+    # to match that exact age.
     passengers = ([{"fare_type": "student"} if student else {"type": "adult"}] * adults
-                  + [{"age": 8}] * children          # Duffel prices children/infants by age
-                  + [{"age": 1}] * infants)
+                  + [{"type": "child"}] * children
+                  + [{"type": "infant_without_seat"}] * infants)
     body = {"data": {
         "slices": [{"origin": l["origin"], "destination": l["destination"],
                     "departure_date": l["date"]} for l in legs],
@@ -169,3 +172,84 @@ def search_flights(legs: list[dict], *, adults: int = 1, children: int = 0, infa
                  body=body, timeout=45.0)["data"]
     offers = [_offer(o) for o in data.get("offers", [])]
     return sorted(offers, key=lambda o: o["price"])
+
+
+# ---------- booking: one offer in detail, seat maps, orders ----------
+
+def _rule(c: dict | None) -> dict:
+    c = c or {}
+    return {"allowed": c.get("allowed"), "penalty": _num(c.get("penalty_amount")),
+            "currency": c.get("penalty_currency")}
+
+
+def _num(x) -> float | None:
+    return float(x) if x not in (None, "") else None
+
+
+def get_offer(offer_id: str) -> dict:
+    """A fresh copy of one offer (prices can change after search), with the
+    details the booking steps need: travellers, fare rules, baggage."""
+    o = _call("GET", f"/air/offers/{offer_id}")["data"]
+    first_seg = (o.get("slices") or [{}])[0].get("segments", [{}])[0]
+    bags = (first_seg.get("passengers") or [{}])[0].get("baggages") or []
+    conditions = o.get("conditions") or {}
+    return {
+        **_offer(o),
+        "base_amount": _num(o.get("base_amount")),
+        "tax_amount": _num(o.get("tax_amount")),
+        "expires_at": o.get("expires_at"),
+        "passengers": [{"id": p["id"], "type": p.get("type") or "adult"} for p in o.get("passengers", [])],
+        "baggage": [{"type": b.get("type"), "quantity": b.get("quantity")} for b in bags],
+        "refund": _rule(conditions.get("refund_before_departure")),
+        "change": _rule(conditions.get("change_before_departure")),
+    }
+
+
+def seat_maps(offer_id: str) -> list[dict]:
+    """One seat map per flight segment; [] when the airline doesn't share one.
+
+    Each seat lists, per traveller, the service to book it and its price. A seat
+    with no services is taken (or not bookable online)."""
+    try:
+        data = _call("GET", "/air/seat_maps", params={"offer_id": offer_id}, timeout=30.0)["data"]
+    except DuffelError as e:
+        if "no seat map" in str(e).lower():
+            return []
+        raise
+    maps = []
+    for m in data:
+        cabins = []
+        for c in m.get("cabins", []):
+            rows = [[[{
+                "type": e.get("type"),                 # seat | exit_row | lavatory | galley | bassinet | empty
+                "designator": e.get("designator"),     # "12A"
+                "disclosures": e.get("disclosures") or [],
+                "services": {sv["passenger_id"]: {"id": sv["id"], "amount": float(sv["total_amount"]),
+                                                  "currency": sv["total_currency"]}
+                             for sv in e.get("available_services") or []},
+            } for e in sec.get("elements", [])] for sec in r.get("sections", [])] for r in c.get("rows", [])]
+            cabins.append({"cabin_class": c.get("cabin_class"), "aisles": c.get("aisles"), "rows": rows})
+        maps.append({"segment_id": m.get("segment_id"), "cabins": cabins})
+    return maps
+
+
+def create_order(offer_id: str, passengers: list[dict], service_ids: list[str],
+                 amount: float, currency: str) -> dict:
+    """Book an offer and pay from the Duffel balance (test mode: pretend money,
+    no real ticket). `amount` must equal the offer total plus chosen services."""
+    body = {"data": {
+        "type": "instant",
+        "selected_offers": [offer_id],
+        "passengers": passengers,
+        "services": [{"id": sid, "quantity": 1} for sid in service_ids],
+        "payments": [{"type": "balance", "currency": currency, "amount": f"{amount:.2f}"}],
+    }}
+    o = _call("POST", "/air/orders", body=body, timeout=60.0)["data"]
+    return {
+        "order_id": o.get("id"),
+        "booking_reference": o.get("booking_reference"),
+        "total_amount": _num(o.get("total_amount")),
+        "total_currency": o.get("total_currency"),
+        "live_mode": o.get("live_mode"),
+        "created_at": o.get("created_at"),
+    }
