@@ -228,6 +228,7 @@
   .btn-navy.done { border: 0; cursor: pointer; }
 
   /* ================= results ================= */
+  #results { scroll-margin-top: 84px; }   /* page changes scroll here; clear the sticky header */
   .res-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
     flex-wrap: wrap; margin-bottom: 12px; }
   .res-head h2 { margin: 0; font-size: 20px; letter-spacing: -.01em; }
@@ -277,6 +278,18 @@
     animation: sh 1.3s infinite linear; }
   @keyframes sh { to { background-position: -200% 0; } }
   .state { text-align: center; padding: 34px 20px; color: var(--ink-2); }
+  .pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    margin: 6px 0 4px; }
+  .pg-info { color: var(--ink-2); font-size: 14px; }
+  .pg-btns { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .pg-btns button { min-width: 38px; height: 38px; padding: 0 12px; border-radius: 10px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface); font-size: 14px; font-weight: 600; color: #33414f; }
+  .pg-btns button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-deep); }
+  .pg-btns button.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .pg-btns button:disabled { opacity: .45; cursor: not-allowed; }
+  .pg-btns button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .pg-gap { color: var(--muted); padding: 0 2px; }
+  @media (max-width: 560px) { .pager { justify-content: center; } .pg-info { width: 100%; text-align: center; } }
   .state .err { color: #b3261e; font-weight: 600; }
   footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 40px; }
 
@@ -831,7 +844,8 @@
   renderDestinations();
 
   // ---- search + results ----
-  let offers = [], sortBy = "price", nonstopOnly = false, lastQuery = null;
+  let offers = [], sortBy = "price", nonstopOnly = false, lastQuery = null, page = 1;
+  const PER_PAGE = 10;
 
   function buildLegs() {
     if (S.trip === "round")
@@ -873,7 +887,7 @@
       if (r.status === 401) { window.location.href = "/login"; return; }
       const d = await r.json();
       if (!r.ok) return showState(d.error || "Search failed.", true);
-      offers = d.offers || [];
+      offers = d.offers || []; page = 1;
       renderResults();
     } catch (_) {
       showState("Couldn't reach the server. Is it still running?", true);
@@ -928,6 +942,23 @@
       <div>${esc((g.depart || "").slice(0, 10))} · ${hm(g.depart)}–${hm(g.arrive)} · ${dur(g.duration_min)}</div></div>`).join("");
   }
 
+  // "Showing 11–20 of 92" + ‹ Prev 1 … 4 5 6 … 10 Next ›
+  function pagerHtml(start, count, total, pages) {
+    const info = `<div class="pg-info">Showing ${start + 1}–${start + count} of ${total} flights</div>`;
+    if (pages === 1) return `<nav class="pager">${info}</nav>`;
+    const nums = [...new Set([1, page - 1, page, page + 1, pages])].filter(n => n >= 1 && n <= pages).sort((a, b) => a - b);
+    let btns = "", prev = 0;
+    for (const n of nums) {
+      if (n - prev > 1) btns += `<span class="pg-gap">…</span>`;
+      btns += `<button type="button" data-page="${n}" class="${n === page ? "on" : ""}"
+        ${n === page ? 'aria-current="page"' : ""} aria-label="Page ${n}">${n}</button>`;
+      prev = n;
+    }
+    return `<nav class="pager" aria-label="Results pages">${info}<div class="pg-btns">
+      <button type="button" data-page="${page - 1}" ${page === 1 ? "disabled" : ""}>‹ Prev</button>${btns}
+      <button type="button" data-page="${page + 1}" ${page === pages ? "disabled" : ""}>Next ›</button></div></nav>`;
+  }
+
   function renderResults() {
     const q = lastQuery;
     const route = S.trip === "round"
@@ -949,7 +980,11 @@
         <label class="chk"><input type="checkbox" id="nonstop" ${nonstopOnly ? "checked" : ""} /> Non-stop only</label>
       </div></div>`;
 
-    const body = list.length ? list.map((o, k) => `<article class="card offer">
+    const pages = Math.max(1, Math.ceil(list.length / PER_PAGE));
+    page = Math.min(page, pages);
+    const start = (page - 1) * PER_PAGE, shown = list.slice(start, start + PER_PAGE);
+
+    const body = shown.length ? shown.map((o, k) => `<article class="card offer">
         <div class="slices">${o.slices.map(sliceHtml).join("")}</div>
         <div class="price"><div class="amt">${o.original_currency ? "≈ " : ""}${money(o.price, o.currency)}</div>
           <div class="per">total${paxTotal() > 1 ? ` · ${paxTotal()} travellers` : ""}</div>
@@ -961,9 +996,13 @@
           ? "No non-stop flights for this search. Untick “Non-stop only” to see connecting flights."
           : "No flights found for these dates. Try different dates or nearby airports."}</div>`;
 
-    $("results").innerHTML = head + body;
-    $("results").querySelectorAll("[data-sort]").forEach(b => b.onclick = () => { sortBy = b.dataset.sort; renderResults(); });
-    $("nonstop").onchange = e => { nonstopOnly = e.target.checked; renderResults(); };
+    $("results").innerHTML = head + body + (list.length ? pagerHtml(start, shown.length, list.length, pages) : "");
+    $("results").querySelectorAll("[data-sort]").forEach(b => b.onclick = () => { sortBy = b.dataset.sort; page = 1; renderResults(); });
+    $("nonstop").onchange = e => { nonstopOnly = e.target.checked; page = 1; renderResults(); };
+    $("results").querySelectorAll("[data-page]").forEach(b => b.onclick = () => {
+      page = +b.dataset.page; renderResults();
+      $("results").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
     $("results").querySelectorAll(".more").forEach(b => b.onclick = () => {
       const d = b.nextElementSibling, open = d.hidden;
       d.hidden = !open; b.setAttribute("aria-expanded", open);
@@ -999,7 +1038,7 @@
     Object.assign(S, freshState());
     document.querySelector("input[name=trip][value=oneway]").checked = true;
     document.querySelector("input[name=fare][value=regular]").checked = true;
-    offers = []; sortBy = "price"; nonstopOnly = false; lastQuery = null;
+    offers = []; sortBy = "price"; nonstopOnly = false; lastQuery = null; page = 1;
     $("results").innerHTML = "";
     renderRows();
     // Drop "#hotels" etc. from the URL; Back still returns to that tab.
