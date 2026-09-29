@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from starlette.middleware.sessions import SessionMiddleware
 
 from travel_planner.api import auth
-from travel_planner.services import duffel
+from travel_planner.services import duffel, fx
 
 HERE = Path(__file__).parent
 app = FastAPI(title="AI Travel Planner")
@@ -152,6 +152,23 @@ class FlightSearch(BaseModel):
         return self
 
 
+DISPLAY_CURRENCY = "INR"
+
+
+def _to_display_currency(offers: list[dict]) -> list[dict]:
+    """Convert offer prices to INR for display, keeping the airline's original
+    price too. If a rate can't be fetched, that offer keeps its own currency."""
+    for o in offers:
+        try:
+            r = fx.rate(o["currency"], DISPLAY_CURRENCY)
+        except Exception:
+            continue
+        if o["currency"] != DISPLAY_CURRENCY:
+            o["original_price"], o["original_currency"] = o["price"], o["currency"]
+            o["price"], o["currency"] = round(o["price"] * r, 2), DISPLAY_CURRENCY
+    return offers
+
+
 def _login_required():
     return JSONResponse(status_code=401, content={"error": "Please log in first."})
 
@@ -185,7 +202,7 @@ def search_flights(request: Request, req: FlightSearch):
     except Exception:
         return JSONResponse(status_code=502, content={
             "error": "The flight service didn't respond. Please try again."})
-    return {"offers": offers}
+    return {"offers": _to_display_currency(offers)}
 
 
 def main() -> None:

@@ -45,6 +45,27 @@ def _call(method: str, path: str, *, params=None, body=None, timeout=15.0):
 
 _place_cache: dict[str, list[dict]] = {}
 
+# Duffel knows some Indian cities only by older names ("Bangalore"), so the
+# current name, or a common one, is also searched under the name Duffel uses.
+ALIASES = {
+    "bengaluru": "bangalore", "bombay": "mumbai", "calcutta": "kolkata",
+    "vizag": "visakhapatnam", "mysuru": "mysore", "mangaluru": "mangalore",
+    "puducherry": "pondicherry", "gurugram": "delhi", "gurgaon": "delhi", "noida": "delhi",
+}
+# ...and shown under the current name.
+CITY_NAMES = {"BLR": "Bengaluru", "CCU": "Kolkata", "IXE": "Mangaluru", "MYQ": "Mysuru"}
+
+
+def _suggest(q: str) -> list[dict]:
+    data = _call("GET", "/places/suggestions", params={"query": q})["data"]
+    return [{
+        "type": p.get("type"),                        # "city" | "airport"
+        "code": p.get("iata_code"),
+        "name": p.get("name"),
+        "city": CITY_NAMES.get(p.get("iata_code")) or p.get("city_name") or p.get("name"),
+        "country": p.get("iata_country_code"),
+    } for p in data if p.get("iata_code")]
+
 
 def suggest_places(query: str) -> list[dict]:
     """Cities and airports matching a search string, e.g. "beng" or "SYD"."""
@@ -52,14 +73,15 @@ def suggest_places(query: str) -> list[dict]:
     if len(q) < 2:
         return []
     if q not in _place_cache:
-        data = _call("GET", "/places/suggestions", params={"query": q})["data"]
-        _place_cache[q] = [{
-            "type": p.get("type"),                        # "city" | "airport"
-            "code": p.get("iata_code"),
-            "name": p.get("name"),
-            "city": p.get("city_name") or p.get("name"),
-            "country": p.get("iata_country_code"),
-        } for p in data if p.get("iata_code")][:8]
+        # Alias matches first: "beng" means Bengaluru far more often than Benghazi.
+        queries = [target for alias, target in ALIASES.items() if len(q) >= 3 and alias.startswith(q)]
+        results, seen = [], set()
+        for sub in dict.fromkeys(queries + [q]):      # de-duplicate, keep order
+            for p in _suggest(sub):
+                if (p["type"], p["code"]) not in seen:
+                    seen.add((p["type"], p["code"]))
+                    results.append(p)
+        _place_cache[q] = results[:8]
     return _place_cache[q]
 
 
