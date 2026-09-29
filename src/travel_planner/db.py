@@ -9,6 +9,7 @@ Tables
   users                     login accounts (salted password hashes only)
   flight_bookings           one row per booking: PNR, airline, route, total, contact
   flight_booking_travellers one row per traveller on a booking: name, DOB, seat(s)
+  revoked_tokens            ids of logged-out login tokens (JWTs) until they expire
 """
 
 from __future__ import annotations
@@ -96,6 +97,11 @@ SCHEMA = [
          KEY (booking_id),
          CONSTRAINT fk_traveller_booking FOREIGN KEY (booking_id)
            REFERENCES flight_bookings (id) ON DELETE CASCADE
+       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""",
+    """CREATE TABLE IF NOT EXISTS revoked_tokens (
+         jti        VARCHAR(64) PRIMARY KEY,       -- the logged-out JWT's unique id
+         expires_at DATETIME    NOT NULL,          -- UTC; the row is useless after this
+         KEY (expires_at)
        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""",
 ]
 

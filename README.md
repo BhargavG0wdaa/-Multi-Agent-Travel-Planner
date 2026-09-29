@@ -30,7 +30,14 @@ rm data/mysql_setup.sql                     # it holds the password; not needed 
 ```
 
 Keep `.env` private (`chmod 600 .env`): it holds the database password and
-`SESSION_SECRET`. Tables are created automatically on start. To copy accounts
+`JWT_SECRET`, the key that signs login tokens.
+
+### Logins
+
+Passwords are stored only as salted PBKDF2-SHA256 hashes (600,000 rounds).
+After signing in, the browser holds a JWT in an HttpOnly cookie, valid for
+7 days; logging out revokes it. Repeated wrong passwords lock the account
+for 15 minutes. Tables are created automatically on start. To copy accounts
 and bookings from the old SQLite file: `python scripts/migrate_sqlite_to_mysql.py`.
 
 ## Run

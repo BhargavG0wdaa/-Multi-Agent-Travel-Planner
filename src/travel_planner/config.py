@@ -38,5 +38,5 @@ def require(name: str) -> str:
 if __name__ == "__main__":
     # A safe self-check: shows which keys are configured WITHOUT printing them.
     print("Key status (values never shown):")
-    for name in ["DUFFEL_ACCESS_TOKEN", "SESSION_SECRET"]:
+    for name in ["DUFFEL_ACCESS_TOKEN", "JWT_SECRET", "MYSQL_PASSWORD"]:
         print(f"  {name:22} {'set ✓' if os.getenv(name) else 'not set'}")

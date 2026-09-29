@@ -102,5 +102,9 @@ def verify_user(email: str, password: str) -> bool:
 
 
 def current_user(request) -> str | None:
-    """Email of the signed-in user (from the session cookie), or None."""
-    return request.session.get("user")
+    """Email of the signed-in user (from their JWT cookie), or None.
+    Checked once per request, then remembered on request.state."""
+    from travel_planner.api import tokens      # late import: tokens -> db, not a cycle with auth
+    if not hasattr(request.state, "user"):
+        request.state.user = tokens.user_from(request.cookies.get(tokens.COOKIE))
+    return request.state.user

@@ -13,7 +13,7 @@ dependencies = [
     "python-dotenv>=1.2",
     "fastapi>=0.139",
     "uvicorn>=0.50",
-    "itsdangerous>=2.2",
+    "pyjwt>=2.8",              # login tokens (JWT)
     "pymysql[rsa]>=1.1",       # MySQL driver; [rsa] adds cryptography for MySQL 8+/9 logins
 ]
 

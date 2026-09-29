@@ -4,7 +4,7 @@ app.py — the web app: login, and the travel search pages.
 Routes:
   GET  /login        -> login / sign-up page
   POST /api/register -> create an account (password stored hashed)
-  POST /api/login    -> sign in (signed session cookie)
+  POST /api/login    -> sign in (JWT in an HttpOnly cookie; see tokens.py)
   POST /api/logout   -> sign out
   GET  /             -> the app page (requires login); tab sections are filled in
   /static/*          -> shared static assets
@@ -14,8 +14,6 @@ Run:  travel-planner-web      (or:  uvicorn travel_planner.api.app:app --reload)
 """
 
 from __future__ import annotations
-import os
-import secrets
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -23,24 +21,15 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from starlette.middleware.sessions import SessionMiddleware
 
 from travel_planner import flight_agent
-from travel_planner.api import auth, throttle
+from travel_planner.api import auth, throttle, tokens
 from travel_planner.api.auth import current_user
 
 HERE = Path(__file__).parent
 app = FastAPI(title="AI Travel Planner")
 
-if not os.getenv("SESSION_SECRET"):
-    print("[app] WARNING: SESSION_SECRET is not set in .env — everyone is logged out "
-          "on every restart. See .env.example.")
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=os.getenv("SESSION_SECRET") or secrets.token_hex(32),
-    same_site="lax",
-    max_age=7 * 24 * 3600,          # sign-in lasts a week
-)
+tokens.check_config()               # logins are JWTs signed with JWT_SECRET (see tokens.py)
 app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 app.mount("/flights/static", StaticFiles(directory=flight_agent.HERE / "static"), name="flights-static")
 app.include_router(flight_agent.router)
@@ -78,8 +67,7 @@ def register(request: Request, creds: Credentials):
         auth.create_user(email, creds.password)
     except ValueError as e:
         return JSONResponse(status_code=400, content={"error": str(e)})
-    request.session["user"] = email
-    return {"ok": True}
+    return _signed_in(email)
 
 
 @app.post("/api/login")
@@ -93,14 +81,22 @@ def login(request: Request, creds: Credentials):
         throttle.failed(email, ip)
         return JSONResponse(status_code=401, content={"error": "Invalid email or password."})
     throttle.succeeded(email)
-    request.session["user"] = email
-    return {"ok": True}
+    return _signed_in(email)
+
+
+def _signed_in(email: str) -> JSONResponse:
+    """Log the user in: a fresh JWT in an HttpOnly cookie."""
+    resp = JSONResponse({"ok": True})
+    tokens.set_cookie(resp, tokens.issue(email))
+    return resp
 
 
 @app.post("/api/logout")
 def logout(request: Request):
-    request.session.clear()
-    return {"ok": True}
+    tokens.revoke(request.cookies.get(tokens.COOKIE))     # a copied token stops working too
+    resp = JSONResponse({"ok": True})
+    tokens.clear_cookie(resp)
+    return resp
 
 
 # ---------- app page (requires login) ----------
