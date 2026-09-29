@@ -23,12 +23,14 @@ Accounts and bookings are stored in a local MySQL database. Create the database
 and the app's own MySQL user once, as root:
 
 ```bash
+cp scripts/mysql_setup.example.sql data/mysql_setup.sql
+# put a strong password in place of the placeholder (twice), and the same one in .env as MYSQL_PASSWORD
 mysql -u root -p < data/mysql_setup.sql     # database travel_planner + user travel_app
+rm data/mysql_setup.sql                     # it holds the password; not needed after setup
 ```
 
-`data/mysql_setup.sql` is git-ignored because it contains the app user's
-password; the same password goes in `.env` as `MYSQL_PASSWORD` (see
-`.env.example`). Tables are created automatically on start. To copy accounts
+Keep `.env` private (`chmod 600 .env`): it holds the database password and
+`SESSION_SECRET`. Tables are created automatically on start. To copy accounts
 and bookings from the old SQLite file: `python scripts/migrate_sqlite_to_mysql.py`.
 
 ## Run

@@ -26,15 +26,20 @@ from pydantic import BaseModel
 from starlette.middleware.sessions import SessionMiddleware
 
 from travel_planner import flight_agent
-from travel_planner.api import auth
+from travel_planner.api import auth, throttle
 from travel_planner.api.auth import current_user
 
 HERE = Path(__file__).parent
 app = FastAPI(title="AI Travel Planner")
 
+if not os.getenv("SESSION_SECRET"):
+    print("[app] WARNING: SESSION_SECRET is not set in .env — everyone is logged out "
+          "on every restart. See .env.example.")
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SESSION_SECRET") or secrets.token_hex(32),
+    same_site="lax",
+    max_age=7 * 24 * 3600,          # sign-in lasts a week
 )
 app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 app.mount("/flights/static", StaticFiles(directory=flight_agent.HERE / "static"), name="flights-static")
@@ -65,9 +70,10 @@ def login_page() -> str:
 @app.post("/api/register")
 def register(request: Request, creds: Credentials):
     email = creds.email.strip().lower()
-    if not email or len(creds.password) < 6:
-        return JSONResponse(status_code=400, content={
-            "error": "Enter an email and a password of at least 6 characters."})
+    if "@" not in email:
+        return JSONResponse(status_code=400, content={"error": "Enter a valid email address."})
+    if problem := auth.password_problem(email, creds.password):
+        return JSONResponse(status_code=400, content={"error": problem})
     try:
         auth.create_user(email, creds.password)
     except ValueError as e:
@@ -79,8 +85,14 @@ def register(request: Request, creds: Credentials):
 @app.post("/api/login")
 def login(request: Request, creds: Credentials):
     email = creds.email.strip().lower()
+    ip = request.client.host if request.client else None
+    if wait := throttle.retry_after(email, ip):
+        return JSONResponse(status_code=429, headers={"Retry-After": str(wait)}, content={
+            "error": f"Too many failed attempts. Try again in {max(1, round(wait / 60))} minute(s)."})
     if not auth.verify_user(email, creds.password):
+        throttle.failed(email, ip)
         return JSONResponse(status_code=401, content={"error": "Invalid email or password."})
+    throttle.succeeded(email)
     request.session["user"] = email
     return {"ok": True}
 

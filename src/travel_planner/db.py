@@ -57,6 +57,7 @@ SCHEMA = [
          email     VARCHAR(255) NOT NULL UNIQUE,
          pw_salt   CHAR(32)     NOT NULL,          -- 16 random bytes, hex
          pw_hash   CHAR(64)     NOT NULL,          -- PBKDF2-SHA256, hex
+         pw_iterations INT      NOT NULL DEFAULT 200000,  -- rounds used for this hash
          created   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP
        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4""",
     """CREATE TABLE IF NOT EXISTS flight_bookings (
@@ -99,8 +100,22 @@ SCHEMA = [
 ]
 
 
+# Columns added after a table first shipped: (table, column, ALTER statement).
+# Existing users keep 200000 — the rounds their hashes were made with.
+COLUMNS = [
+    ("users", "pw_iterations",
+     "ALTER TABLE users ADD COLUMN pw_iterations INT NOT NULL DEFAULT 200000 AFTER pw_hash"),
+]
+
+
 def init() -> None:
-    """Create any missing tables (safe to call on every start)."""
+    """Create any missing tables and columns (safe to call on every start)."""
     with connect() as conn, conn.cursor() as cur:
         for stmt in SCHEMA:
             cur.execute(stmt)
+        for table, column, alter in COLUMNS:
+            cur.execute("SELECT 1 FROM information_schema.COLUMNS "
+                        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s AND COLUMN_NAME = %s",
+                        (table, column))
+            if not cur.fetchone():
+                cur.execute(alter)
