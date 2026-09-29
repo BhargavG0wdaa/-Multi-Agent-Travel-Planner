@@ -15,7 +15,7 @@ function showBooking(on) {
   $("booking").hidden = !on;
   window.scrollTo(0, 0);
 }
-function exitBooking() { if (!$("booking").hidden) showBooking(false); }
+function exitBooking() { clearInterval(B.payTimer); if (!$("booking").hidden) showBooking(false); }
 document.addEventListener("viewchange", () => { if (!location.hash || location.hash === "#flights") return; exitBooking(); });
 
 async function startBooking(offerId) {
@@ -81,6 +81,7 @@ const seatTotal = () => Object.values(B.seats).reduce((t, s) => t + s.amount, 0)
 
 // ---- page frame: step bar + current step ----
 function renderStep() {
+  clearInterval(B.payTimer);
   const bar = `<ol class="bk-steps">${B.flow.map((k, i) => `<li class="${i < B.step ? "done" : i === B.step ? "on" : ""}">
       <span class="n">${i < B.step ? "✓" : i + 1}</span>${STEP_TITLES[k]}</li>`).join("")}</ol>`;
   const current = B.flow[B.step];
@@ -102,7 +103,8 @@ function wireNav() {
     if (go === "home") return goHome();
     if (go === "next") { if (B.flow[B.step] === "travellers" && !travellersValid()) return; B.step++; return renderStep(); }
     if (go === "back") { B.step--; return renderStep(); }
-    if (go === "book") return book();
+    if (go === "pay") return showPayment();
+    if (go === "cancel-pay") return renderStep();
   });
 }
 
@@ -333,31 +335,77 @@ function stepReview() {
       <label class="chk bk-agree"><input type="checkbox" id="bkAgree" /> I've checked that the names match each traveller's ID.</label>
     </div>
     <aside class="card bk-side">${priceSide()}
-      <button type="button" class="bk-btn full" id="bkBook" data-go="book">Confirm & book</button>
+      <button type="button" class="bk-btn full" id="bkBook" data-go="pay">Pay ${payAmount()}</button>
       <button type="button" class="bk-btn ghost full" data-go="back">Back</button></aside></div>`;
 }
 
-async function book() {
+// What the traveller pays: rupees (the estimate) when the airline charges in another currency.
+function payAmount() {
+  const total = B.offer.price + seatTotal();
+  return B.rate && B.offer.currency !== "INR" ? money(total * B.rate, "INR") : exact(total, B.offer.currency);
+}
+
+// ---- demo payment: Razorpay-style screen with a QR code that can't take money ----
+const PAY_MINUTES = 10;
+
+function showPayment() {
   if (!$("bkAgree").checked) { $("bkAgree").focus(); $("bkAgree").closest("label").classList.add("bad"); return; }
-  const btn = $("bkBook");
-  btn.disabled = true; btn.textContent = "Booking with the airline…";
+  const total = B.offer.price + seatTotal(), cur = B.offer.currency;
+  $("booking").innerHTML = `<div class="card rzp" role="dialog" aria-labelledby="rzpTitle">
+    <div class="rzp-head">
+      <div class="rzp-brand"><span class="rzp-mark" aria-hidden="true">₹</span><b id="rzpTitle">Razorpay</b><span class="rzp-demo">DEMO</span></div>
+      <div class="rzp-merchant">AI Travel Planner</div>
+    </div>
+    <div class="rzp-body">
+      <div class="rzp-amt"><span>Amount to pay</span><b>${payAmount()}</b>
+        ${B.rate && cur !== "INR" ? `<small>${exact(total, cur)} charged by the airline in ${cur}</small>` : ""}</div>
+      <div class="rzp-qr"><img src="/flights/static/demo-qr.svg" alt="Demo UPI QR code" width="210" height="210" /></div>
+      <p class="rzp-scan">Scan & pay with any UPI app</p>
+      <p class="rzp-timer" id="rzpTimerRow">QR code expires in <b id="rzpTimer">${PAY_MINUTES}:00</b></p>
+      <p class="rzp-note">Demo payment screen: scanning this code does nothing and no money is charged.</p>
+      <button type="button" class="rzp-continue" id="rzpContinue">Continue</button>
+      <button type="button" class="bk-link rzp-cancel" data-go="cancel-pay">Cancel payment</button>
+    </div></div>`;
+  wireNav();
+  $("rzpContinue").onclick = () => book($("rzpContinue"));
+  const ends = Date.now() + PAY_MINUTES * 60e3;
+  clearInterval(B.payTimer);
+  B.payTimer = setInterval(() => {
+    const left = Math.max(0, Math.round((ends - Date.now()) / 1000));
+    if (!$("rzpTimer")) return clearInterval(B.payTimer);
+    $("rzpTimer").textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+    if (!left) {
+      clearInterval(B.payTimer);
+      $("rzpTimerRow").innerHTML = `QR code expired. <button type="button" class="bk-link" id="rzpNew">Show a new code</button>`;
+      $("rzpContinue").disabled = true;
+      $("rzpNew").onclick = showPayment;
+    }
+  }, 1000);
+  window.scrollTo(0, 0);
+}
+
+async function book(btn) {
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = "Confirming your booking…";
   const d = await api("/api/flights/orders", {
     offer_id: B.offerId,
     travellers: B.pax.map(p => ({ id: p.id, ...B.travellers[p.id] })),
     email: B.contact.email, phone: B.contact.phone,
     seats: Object.values(B.seats).map(s => s.serviceId),
+    payment_method: "demo_upi",
   });
   if (d.error) {
-    btn.disabled = false; btn.textContent = "Confirm & book";
-    if (d.gone || d.status === 409) return bookingError(d);
-    return showBookErr(d.error);
+    btn.disabled = false; btn.textContent = label;
+    if (d.gone || d.status === 409) { clearInterval(B.payTimer); return bookingError(d); }
+    return showBookErr(d.error, btn);
   }
+  clearInterval(B.payTimer);
   confirmation(d);
 }
 
-function showBookErr(msg) {
+function showBookErr(msg, btn) {
   let el = $("booking").querySelector(".bk-fail");
-  if (!el) { el = document.createElement("p"); el.className = "err bk-fail"; $("bkBook").before(el); }
+  if (!el) { el = document.createElement("p"); el.className = "err bk-fail"; btn.before(el); }
   el.textContent = msg;
 }
 
@@ -377,6 +425,7 @@ function confirmation(d) {
     </div>
     <div class="line total"><span>Total paid</span><span>${exact(o.total_amount, o.total_currency)}${
       rate && o.total_currency !== "INR" ? ` <span class="bk-inr">≈ ${money(o.total_amount * rate, "INR")}</span>` : ""}</span></div>
+    ${d.payment ? `<div class="line"><span>Payment</span><span>Razorpay UPI (demo) · ${esc(d.payment.ref)}</span></div>` : ""}
     <p class="muted small">Order ${esc(o.order_id)}</p>
     <div class="bk-actions center"><button type="button" class="bk-btn" data-go="home">Book another flight</button></div>
   </div>`;

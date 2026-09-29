@@ -24,7 +24,7 @@ def _trip_type(slices: list[dict]) -> str:
 
 
 def save(user_email: str, order: dict, summary: dict, travellers: list[dict],
-         contact: dict, total_inr: float | None) -> int:
+         contact: dict, total_inr: float | None, payment: dict | None = None) -> int:
     """Store a booking and its travellers in one transaction. Returns the booking id."""
     slices = summary["slices"]
     first = slices[0]
@@ -37,13 +37,14 @@ def save(user_email: str, order: dict, summary: dict, travellers: list[dict],
             """INSERT INTO flight_bookings
                  (user_id, order_id, booking_reference, airline, origin, destination, depart_at,
                   trip_type, slices, fare_amount, seats_amount, total_amount, currency, total_inr,
-                  contact_email, contact_phone, test_mode)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                  contact_email, contact_phone, payment_method, payment_ref, test_mode)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
             (user["id"], order["order_id"], order["booking_reference"], summary["airline"],
              first["origin"], first["destination"], (first.get("depart") or "")[:19].replace("T", " ") or None,
              _trip_type(slices), json.dumps(slices), summary["fare"], summary["seats_total"],
              order["total_amount"], order["total_currency"], total_inr,
-             contact.get("email"), contact.get("phone"), not order.get("live_mode")),
+             contact.get("email"), contact.get("phone"), (payment or {}).get("method"),
+             (payment or {}).get("ref"), not order.get("live_mode")),
         )
         booking_id = cur.lastrowid
         cur.executemany(
@@ -78,6 +79,7 @@ def for_user(user_email: str) -> list[dict]:
             "total_amount": float(r["total_amount"]), "currency": r["currency"],
             "total_inr": float(r["total_inr"]) if r["total_inr"] is not None else None,
             "created": r["created"].isoformat() if r["created"] else None,
+            "payment_method": r["payment_method"], "payment_ref": r["payment_ref"],
             "travellers": [{k: t[k] for k in ("traveller_type", "title", "given_name", "family_name", "seats")}
                            for t in travellers if t["booking_id"] == r["id"]],
         })

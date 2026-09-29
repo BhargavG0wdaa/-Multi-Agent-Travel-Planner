@@ -11,6 +11,7 @@ routes.py — the flight endpoints, plugged into the main app as a router.
 
 from __future__ import annotations
 import re
+import secrets
 from datetime import date
 from typing import Literal
 
@@ -212,6 +213,8 @@ class BookingRequest(BaseModel):
     email: str
     phone: str
     seats: list[str] = Field(default_factory=list, max_length=40)    # seat service ids
+    # Only the demo payment screen exists for now: nothing is charged to the traveller.
+    payment_method: Literal["demo_upi"] = "demo_upi"
 
     @field_validator("email")
     @classmethod
@@ -287,6 +290,7 @@ def create_booking(request: Request, req: BookingRequest):
         "fare": offer["price"], "seats_total": seat_price,
     }
     rate = _rate(order["total_currency"] or offer["currency"])
+    payment = {"method": req.payment_method, "ref": "demo_" + secrets.token_hex(6)}
     # The airline booking already exists at this point, so a database problem
     # must not hide the booking reference from the traveller: log it loudly instead.
     try:
@@ -298,10 +302,12 @@ def create_booking(request: Request, req: BookingRequest):
                         for t in req.travellers],
             contact={"email": req.email, "phone": req.phone},
             total_inr=round(order["total_amount"] * rate, 2) if rate and order["total_amount"] else None,
+            payment=payment,
         )
     except Exception as e:
         print(f"[bookings] COULD NOT SAVE booking {order['booking_reference']} ({order['order_id']}): {e!r}")
-    return {"order": order, "summary": summary, "display": {"currency": DISPLAY_CURRENCY, "rate": rate}}
+    return {"order": order, "summary": summary, "payment": payment,
+            "display": {"currency": DISPLAY_CURRENCY, "rate": rate}}
 
 
 @router.get("/api/flights/bookings")

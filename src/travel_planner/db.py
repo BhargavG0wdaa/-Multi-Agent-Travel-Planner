@@ -79,6 +79,8 @@ SCHEMA = [
          total_inr         DECIMAL(12,2) NULL,             -- estimate at booking time
          contact_email     VARCHAR(255) NULL,
          contact_phone     VARCHAR(20)  NULL,
+         payment_method    VARCHAR(20)  NULL,             -- demo_upi (demo payment screen)
+         payment_ref       VARCHAR(40)  NULL,             -- our payment reference
          test_mode         BOOLEAN      NOT NULL DEFAULT TRUE,
          created           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
          KEY (user_id),
@@ -111,6 +113,10 @@ SCHEMA = [
 COLUMNS = [
     ("users", "pw_iterations",
      "ALTER TABLE users ADD COLUMN pw_iterations INT NOT NULL DEFAULT 200000 AFTER pw_hash"),
+    ("flight_bookings", "payment_method",
+     "ALTER TABLE flight_bookings ADD COLUMN payment_method VARCHAR(20) NULL AFTER contact_phone"),
+    ("flight_bookings", "payment_ref",
+     "ALTER TABLE flight_bookings ADD COLUMN payment_ref VARCHAR(40) NULL AFTER payment_method"),
 ]
 
 
