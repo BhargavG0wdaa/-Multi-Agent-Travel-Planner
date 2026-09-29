@@ -17,6 +17,20 @@ Then get a free **Duffel test token** (no card needed) at
 <https://app.duffel.com/join>, and paste it into `.env` as `DUFFEL_ACCESS_TOKEN`.
 Test mode never books real tickets.
 
+### Database (MySQL)
+
+Accounts and bookings are stored in a local MySQL database. Create the database
+and the app's own MySQL user once, as root:
+
+```bash
+mysql -u root -p < data/mysql_setup.sql     # database travel_planner + user travel_app
+```
+
+`data/mysql_setup.sql` is git-ignored because it contains the app user's
+password; the same password goes in `.env` as `MYSQL_PASSWORD` (see
+`.env.example`). Tables are created automatically on start. To copy accounts
+and bookings from the old SQLite file: `python scripts/migrate_sqlite_to_mysql.py`.
+
 ## Run
 
 ```bash
@@ -30,14 +44,17 @@ For development, `uvicorn travel_planner.api.app:app --reload` restarts on code 
 ```
 src/travel_planner/
 ├── config.py               # settings from .env
+├── db.py                   # MySQL connection + tables (users, flight_bookings, flight_booking_travellers)
 ├── flight_agent/           # everything for the Flights tab
 │   ├── duffel.py           #   Duffel API client (airport suggestions, flight offers)
-│   ├── routes.py           #   /api/places, /api/flights/search (prices shown in INR)
+│   ├── routes.py           #   search, offer details, seat maps, booking (prices shown in INR)
+│   ├── bookings.py         #   saved bookings + travellers in MySQL
 │   ├── templates/          #   flights.html: search form, results, popular destinations
 │   └── static/             #   flights.css, flights.js, destination photos
 ├── services/               # shared helpers: http.py (JSON client), fx.py (exchange rates)
 └── api/                    # FastAPI app, login, page shell (header + tabs)
-data/                       # local SQLite user DB (git-ignored)
+scripts/                    # one-off tools (SQLite -> MySQL migration)
+data/                       # git-ignored: MySQL setup script, old SQLite file
 ```
 
 Each tab lives in its own folder like `flight_agent/`; the page shell fills its

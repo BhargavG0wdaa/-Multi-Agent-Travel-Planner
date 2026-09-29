@@ -1,48 +1,28 @@
 """
-auth.py — user accounts stored in a local SQLite database.
+auth.py — user accounts, stored in the app's MySQL database (see db.py).
 
 Security essentials shown here (these matter — take them seriously):
   - Passwords are NEVER stored in plain text. We store a salted PBKDF2 hash.
   - Each user gets a unique random salt, so two people with the same password
     still get different stored hashes.
   - Verification uses a constant-time comparison to avoid timing attacks.
-
-SQLite is a full SQL database that lives in a single file (data/users.db). No server
-to install — perfect for learning. That file is git-ignored so user data never
-gets committed.
+  - Queries use %s placeholders, never string formatting, so input can't
+    change the SQL (no SQL injection).
 """
 
 from __future__ import annotations
 import hashlib
 import hmac
 import os
-import sqlite3
-from pathlib import Path
 
-# Relative to where the app is started (the project root); override with TRAVEL_PLANNER_DB.
-DB_PATH = Path(os.getenv("TRAVEL_PLANNER_DB", "data/users.db"))
+from travel_planner import db
+
 _ITERATIONS = 200_000          # PBKDF2 work factor: higher = slower to brute-force
 
 
-def _connect() -> sqlite3.Connection:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row      # lets us read columns by name
-    return conn
-
-
 def init_db() -> None:
-    """Create the users table if it doesn't exist yet (safe to call every start)."""
-    with _connect() as conn:
-        conn.execute(
-            """CREATE TABLE IF NOT EXISTS users (
-                   id       INTEGER PRIMARY KEY AUTOINCREMENT,
-                   email    TEXT UNIQUE NOT NULL,
-                   pw_salt  TEXT NOT NULL,
-                   pw_hash  TEXT NOT NULL,
-                   created  TEXT DEFAULT CURRENT_TIMESTAMP
-               )"""
-        )
+    """Create the tables if they don't exist yet (safe to call every start)."""
+    db.init()
 
 
 def _hash_password(password: str, salt: bytes) -> str:
@@ -56,21 +36,18 @@ def create_user(email: str, password: str) -> None:
     salt = os.urandom(16)                       # 16 fresh random bytes per user
     pw_hash = _hash_password(password, salt)
     try:
-        with _connect() as conn:
-            conn.execute(
-                "INSERT INTO users (email, pw_salt, pw_hash) VALUES (?, ?, ?)",
-                (email, salt.hex(), pw_hash),   # '?' placeholders prevent SQL injection
-            )
-    except sqlite3.IntegrityError:
+        with db.connect() as conn, conn.cursor() as cur:
+            cur.execute("INSERT INTO users (email, pw_salt, pw_hash) VALUES (%s, %s, %s)",
+                        (email, salt.hex(), pw_hash))
+    except db.IntegrityError:
         raise ValueError("An account with that email already exists.")
 
 
 def verify_user(email: str, password: str) -> bool:
     """Return True only if the email exists AND the password matches its hash."""
-    with _connect() as conn:
-        row = conn.execute(
-            "SELECT pw_salt, pw_hash FROM users WHERE email = ?", (email,)
-        ).fetchone()
+    with db.connect() as conn, conn.cursor() as cur:
+        cur.execute("SELECT pw_salt, pw_hash FROM users WHERE email = %s", (email,))
+        row = cur.fetchone()
     if row is None:
         return False
     candidate = _hash_password(password, bytes.fromhex(row["pw_salt"]))

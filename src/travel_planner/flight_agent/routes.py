@@ -286,9 +286,22 @@ def create_booking(request: Request, req: BookingRequest):
                         "seats": labels.get(t.id, [])} for t in req.travellers],
         "fare": offer["price"], "seats_total": seat_price,
     }
-    bookings.save(user, order, summary)
-    return {"order": order, "summary": summary,
-            "display": {"currency": DISPLAY_CURRENCY, "rate": _rate(order["total_currency"] or offer["currency"])}}
+    rate = _rate(order["total_currency"] or offer["currency"])
+    # The airline booking already exists at this point, so a database problem
+    # must not hide the booking reference from the traveller: log it loudly instead.
+    try:
+        bookings.save(
+            user, order, summary,
+            travellers=[{"type": types[t.id], "title": t.title, "given_name": t.given_name,
+                         "family_name": t.family_name, "gender": t.gender,
+                         "born_on": t.born_on.isoformat(), "seats": labels.get(t.id, [])}
+                        for t in req.travellers],
+            contact={"email": req.email, "phone": req.phone},
+            total_inr=round(order["total_amount"] * rate, 2) if rate and order["total_amount"] else None,
+        )
+    except Exception as e:
+        print(f"[bookings] COULD NOT SAVE booking {order['booking_reference']} ({order['order_id']}): {e!r}")
+    return {"order": order, "summary": summary, "display": {"currency": DISPLAY_CURRENCY, "rate": rate}}
 
 
 @router.get("/api/flights/bookings")
