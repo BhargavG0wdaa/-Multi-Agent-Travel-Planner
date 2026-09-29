@@ -28,6 +28,6 @@ def get_llm(temperature: float = 0.0):
     """
     config.require("GROQ_API_KEY")   # fail loudly & early if the key is missing
     return ChatGroq(
-        model="llama-3.3-70b-versatile",   # a capable, free Groq model
+        model=config.GROQ_MODEL,   # set GROQ_MODEL in .env to switch models
         temperature=temperature,
     )

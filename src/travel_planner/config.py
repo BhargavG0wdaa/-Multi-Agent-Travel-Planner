@@ -19,6 +19,8 @@ load_dotenv()   # read .env from the current folder into the environment
 # Read each key once, here, so the rest of the app imports from one place.
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+# Groq retires models over time — change this in .env instead of in code.
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
 AMADEUS_API_KEY = os.getenv("AMADEUS_API_KEY")
 AMADEUS_API_SECRET = os.getenv("AMADEUS_API_SECRET")
