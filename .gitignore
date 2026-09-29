@@ -5,6 +5,9 @@
 # Secrets — the #1 rule: never commit real API keys
 .env
 
+# Local database (user accounts) — never commit user data
+*.db
+
 # Python virtual environment (huge, machine-specific — rebuild with requirements.txt)
 .venv/
 

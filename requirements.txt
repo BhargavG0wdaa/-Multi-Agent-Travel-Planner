@@ -1,3 +1,6 @@
 langgraph
 python-dotenv
 langchain-groq
+fastapi
+uvicorn
+itsdangerous

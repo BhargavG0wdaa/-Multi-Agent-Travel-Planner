@@ -1,54 +1,60 @@
 """
 state.py — the data shapes that flow through the graph.
 
-  1. Domain models (TripSpec, AllocationMap, FlightOption, ...) — data holders.
-  2. TripState — the single shared object every agent (node) reads and writes.
-
-Phase 4 additions (all written only by the resolver, so no reducer needed):
-  - conflicts          — problems the resolver detected this pass
-  - revision_count     — how many times we've looped (stops infinite loops)
-  - avoid_outdoor_days — the constraint the resolver hands back to itinerary
+Step 2 changes:
+  - Input is now structured (origin, destination, days, budget, transport mode)
+    instead of free text.
+  - `flights` becomes a general `transport` slot (flight OR train/bus/bike/car).
+  - Money is currency-aware (₹ for India, $ otherwise).
 """
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from typing import Annotated, TypedDict
 import operator
 
 
 @dataclass
 class TripSpec:
+    origin: str
     destination: str
     start_date: date
-    end_date: date
+    days: int
     party_size: int
     total_budget: float
+    transport_mode: str            # flight | train | bus | car | bike
+    currency: str                  # "INR" | "USD"
+    symbol: str                    # "₹"  | "$"
     preferences: list[str] = field(default_factory=list)
 
     @property
     def nights(self) -> int:
-        return (self.end_date - self.start_date).days
+        return self.days
+
+    @property
+    def end_date(self) -> date:
+        return self.start_date + timedelta(days=self.days)
 
 
 @dataclass
 class AllocationMap:
-    flights: float
+    """Per-category budget caps. `transport` covers flight OR ground travel."""
+    transport: float
     lodging: float
     food: float
     activities: float
 
     @property
     def total(self) -> float:
-        return self.flights + self.lodging + self.food + self.activities
+        return self.transport + self.lodging + self.food + self.activities
 
 
 @dataclass
-class FlightOption:
-    airline: str
-    price: float
-    depart: str
-    arrive: str
+class TransportPlan:
+    mode: str          # flight | train | bus | car | bike
+    label: str         # "✈️ Flight", "🚆 Train", ...
+    cost: float        # estimated cost in the trip's currency
 
 
 @dataclass
@@ -71,23 +77,22 @@ class DayPlan:
     activity: str
     cost: float
     outdoor: bool
+    place: str = ""       # searchable landmark name, used to fetch a photo
 
 
 class TripState(TypedDict, total=False):
     raw: dict
     spec: TripSpec
     allocation: AllocationMap
-    flights: list[FlightOption]
+    transport: TransportPlan       # was `flights`
     lodging: list[StayOption]
     weather: list[DayForecast]
     itinerary: list[DayPlan]
 
-    # Multiple parallel writers -> needs a reducer (see Phase 3).
-    notes: Annotated[list[str], operator.add]
+    notes: Annotated[list[str], operator.add]   # reducer: parallel agents append
 
-    # ---- Phase 4: all written ONLY by the resolver, so plain overwrite ----
-    conflicts: list[str]             # what clashed on the latest pass
-    revision_count: int              # loop counter (our infinite-loop guard)
-    avoid_outdoor_days: list[date]   # constraint fed back into itinerary
+    conflicts: list[str]
+    revision_count: int
+    avoid_outdoor_days: list[date]
 
     final_plan: str

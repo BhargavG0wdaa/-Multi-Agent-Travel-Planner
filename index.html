@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Travel Planner</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  /* ---- goexplore design tokens ---- */
+  :root {
+    --plane:   #f5f7f9;
+    --surface: #ffffff;
+    --ink:     #0c1a2b;
+    --ink-2:   #5b6b7a;
+    --muted:   #8a97a3;
+    --border:  #e9edf1;
+    --field:   #f5f7f9;
+    --accent:  #12b5e8;       /* goexplore blue */
+    --accent-deep: #0e9ecb;
+    --navy:    #0a2540;
+    --good:    #0a7d4f;
+    /* budget categories (colorblind-validated, fixed order) */
+    --transport:  #2a78d6;    /* blue */
+    --lodging:    #1baf7a;    /* aqua */
+    --food:       #eda100;    /* yellow */
+    --activities: #008300;    /* green */
+    --shadow: 0 1px 2px rgba(12,26,43,.04), 0 18px 40px rgba(12,26,43,.07);
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--ink); line-height: 1.5; min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    /* themed goexplore backdrop: soft blue + navy glows fading into the canvas */
+    background:
+      radial-gradient(1100px 560px at 6% -10%, rgba(18,181,232,.18), transparent 60%),
+      radial-gradient(900px 520px at 110% 2%, rgba(10,37,64,.10), transparent 55%),
+      radial-gradient(760px 520px at 92% 96%, rgba(18,181,232,.10), transparent 60%),
+      linear-gradient(180deg, #e8f6fb 0%, #f1fafc 32%, var(--plane) 68%);
+    background-attachment: fixed;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 30px 20px 80px; position: relative; }
+
+  /* ---- goexplore nav ---- */
+  .nav { position: sticky; top: 0; z-index: 50; background: rgba(255,255,255,.82);
+    backdrop-filter: saturate(160%) blur(12px); border-bottom: 1px solid var(--border); }
+  .navbar { max-width: 960px; margin: 0 auto; padding: 0 20px; height: 66px;
+    display: flex; align-items: center; justify-content: space-between; }
+  .logo { font-weight: 800; font-size: 22px; letter-spacing: -.02em; display: inline-flex;
+    align-items: baseline; text-decoration: none; }
+  .logo .go { color: var(--accent); } .logo .ex { color: var(--navy); }
+  .logo sup { font-size: 9px; color: var(--muted); }
+  .navlinks { display: flex; align-items: center; gap: 20px; font-size: 14px; }
+  .navlinks a { color: #33414f; text-decoration: none; font-weight: 500; }
+  .navlinks a:hover { color: var(--accent-deep); }
+  .btn-navy { background: var(--navy); color: #fff !important; padding: 9px 18px;
+    border-radius: 999px; font-weight: 600; font-size: 14px; transition: background .15s, transform .15s; }
+  .btn-navy:hover { background: #0e3358; transform: translateY(-1px); }
+
+  header.hero-head { text-align: center; margin-bottom: 26px; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .11em;
+    text-transform: uppercase; color: var(--accent-deep);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    padding: 5px 13px; border-radius: 999px; margin-bottom: 14px; }
+  h1 { font-size: clamp(30px, 5vw, 44px); font-weight: 800; margin: 0 0 8px; letter-spacing: -0.03em; line-height: 1.05; }
+  .sub { color: var(--ink-2); margin: 0 auto; max-width: 520px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px; }
+  .stack > * + * { margin-top: 16px; }
+  .stack { margin-top: 22px; }
+
+  /* ---- form ---- */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 0 0 6px; }
+  .field { margin-bottom: 14px; }
+  input { width: 100%; padding: 11px 13px; font: inherit; color: var(--ink);
+    background: var(--field); border: 1px solid var(--border); border-radius: 10px; }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; background: #fff; }
+  .money { position: relative; }
+  .money .sym { position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--muted); font-weight: 600; }
+  .money input { padding-left: 26px; }
+
+  #transportBox { margin-bottom: 14px; }
+  .modes { display: flex; flex-wrap: wrap; gap: 8px; }
+  .mode { flex: 1; min-width: 84px; text-align: center; cursor: pointer;
+    padding: 10px; border: 1px solid var(--border); border-radius: 10px;
+    background: var(--field); font-size: 14px; font-weight: 500; }
+  .mode:hover { border-color: var(--accent); }
+  .mode.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--accent-deep); font-weight: 700; }
+  .flightNote { font-size: 14px; color: var(--ink-2); background: var(--field);
+    border: 1px dashed var(--border); border-radius: 10px; padding: 12px 14px; }
+
+  button.primary { font: inherit; font-weight: 700; color: #fff; background: var(--accent);
+    border: 0; border-radius: 10px; padding: 12px 24px; cursor: pointer; }
+  button.primary:hover { background: var(--accent-deep); }
+  button.primary:disabled { opacity: .55; cursor: default; }
+  .row { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+
+  #loading { display: none; align-items: center; gap: 12px; color: var(--ink-2); }
+  .spinner { width: 18px; height: 18px; border: 2.5px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+  .spinner.sm { width: 14px; height: 14px; border-width: 2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---- live agent progress ---- */
+  #progress { display: none; }
+  .grouphdr { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600;
+    letter-spacing: .03em; color: var(--accent-deep); text-transform: uppercase;
+    margin: 12px 0 6px; }
+  .grouphdr::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .pgroup { border-left: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    margin-left: 9px; padding-left: 14px; }
+  .step { display: flex; align-items: center; gap: 12px; padding: 8px 0;
+    transition: opacity .25s ease; }
+  .step .mark { width: 20px; height: 20px; flex: none; display: grid; place-items: center; }
+  .step.pending .mark::after { content: ""; width: 12px; height: 12px;
+    border: 2px solid var(--border); border-radius: 50%; }
+  .step.done .mark { color: var(--good); font-weight: 800; }
+  .step .ico { width: 24px; text-align: center; font-size: 18px; flex: none; }
+  .step .body { flex: 1; min-width: 0; }
+  .step .lbl { font-weight: 600; font-size: 15px; }
+  .step .det { font-size: 13px; color: var(--ink-2); margin-top: 1px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+  .step.pending { opacity: .4; }
+  .step.active .lbl { color: var(--accent-deep); }
+
+  /* ---- route map (India + car/bus/bike) ---- */
+  #mapCard { display: none; }
+  .routeMeta { font-size: 14px; color: var(--ink-2); margin-bottom: 12px; }
+  .routeMeta b { color: var(--ink); }
+  #map { height: 380px; width: 100%; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--field); z-index: 0; }
+  .gmap { display: inline-block; margin-top: 12px; font-size: 13px; font-weight: 600;
+    color: var(--accent); text-decoration: none; }
+  .gmap:hover { color: var(--accent-deep); }
+
+  /* ---- results ---- */
+  #results { display: none; }
+  .trip-title { font-size: 23px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+  .trip-meta { color: var(--ink-2); margin: 5px 0 0; font-size: 14px; }
+  .prefs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .pref { font-size: 12px; background: var(--field); border: 1px solid var(--border);
+    border-radius: 999px; padding: 3px 10px; color: var(--ink-2); }
+
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 620px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
+  .tile { background: var(--field); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .tile .v { font-size: 21px; font-weight: 700; }
+  .tile .l { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  h3.sec { font-size: 13px; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--muted); margin: 0 0 12px; }
+  .bar { display: flex; gap: 2px; height: 26px; border-radius: 6px; overflow: hidden; }
+  .bar > div:first-child { border-radius: 6px 0 0 6px; }
+  .bar > div:last-child { border-radius: 0 6px 6px 0; }
+  .legend { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 20px; margin-top: 14px; }
+  @media (max-width: 480px) { .legend { grid-template-columns: 1fr; } }
+  .leg { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .sw { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+  .leg .amt { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 560px) { .two { grid-template-columns: 1fr; } }
+  .big { font-size: 18px; font-weight: 700; margin: 2px 0 6px; }
+  .kv { font-size: 14px; color: var(--ink-2); } .kv b { color: var(--ink); }
+
+  .day { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-top: 1px solid var(--border); }
+  .day:first-child { border-top: 0; }
+  .thumb { width: 78px; height: 78px; flex: none; border-radius: 10px; overflow: hidden;
+    position: relative; border: 1px solid var(--border);
+    background: linear-gradient(135deg, #e9f1f4, #d6e6ea); }
+  .thumb .ph { position: absolute; inset: 0; display: grid; place-items: center;
+    font-size: 24px; color: var(--muted); transition: opacity .3s ease; }
+  .thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+    opacity: 0; transition: opacity .45s ease, transform .35s ease; }
+  .thumb.has-img img { opacity: 1; }
+  .thumb.has-img .ph { opacity: 0; }
+  .thumb.has-img { cursor: zoom-in; }
+  .thumb.has-img:hover img { transform: scale(1.18); }
+  @media (max-width: 480px) { .thumb { width: 58px; height: 58px; } }
+  .day .date { width: 60px; flex: none; }
+  .day .date .d { font-weight: 700; font-size: 14px; } .day .date .wd { font-size: 12px; color: var(--muted); }
+  .wx { font-size: 22px; width: 30px; text-align: center; flex: none; }
+  .day .act { flex: 1; min-width: 0; font-weight: 500; }
+  .day .act .actname { font-weight: 600; }
+  .day .act .actplace { font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+  .tag.out { color: var(--activities); background: color-mix(in srgb, var(--activities) 14%, transparent); }
+  .tag.in  { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .cost { font-variant-numeric: tabular-nums; color: var(--ink-2); width: 62px; text-align: right; flex: none; }
+
+  .health { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--good); margin-top: 16px; }
+  details.notes { margin-top: 14px; }
+  details.notes summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  details.notes ul { margin: 10px 0 0; padding-left: 18px; color: var(--ink-2); font-size: 13px; }
+  .err { color: #d03b3b; font-weight: 600; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 40px; }
+</style>
+</head>
+<body>
+<header class="nav">
+  <div class="navbar">
+    <a class="logo" href="/"><span class="go">AI</span>&nbsp;<span class="ex">Travel Planner</span></a>
+    <nav class="navlinks">
+      <a href="/">Home</a>
+      <a href="#" id="logout" class="btn-navy">Log out</a>
+    </nav>
+  </div>
+</header>
+<div class="wrap">
+  <header class="hero-head">
+    <span class="badge">Multi-Agent · LangGraph</span>
+    <h1>Plan your perfect trip</h1>
+    <p class="sub">Tell us where you're going. Agents plan it under a shared budget
+      and reconcile the weather with your activities.</p>
+  </header>
+
+  <!-- form -->
+  <div class="card">
+    <div class="grid2">
+      <div class="field"><label for="from">From</label>
+        <input id="from" placeholder="e.g. Mumbai" /></div>
+      <div class="field"><label for="to">To</label>
+        <input id="to" placeholder="e.g. Goa (or Paris)" /></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label for="days">How many days</label>
+        <input id="days" type="number" min="1" max="30" value="5" /></div>
+      <div class="field"><label for="budget">Budget</label>
+        <div class="money"><span class="sym" id="sym">$</span>
+          <input id="budget" type="number" min="0" step="100" value="3000" /></div></div>
+    </div>
+
+    <div id="transportBox" class="field">
+      <label>Getting there</label>
+      <div id="modes" class="modes"></div>
+      <div id="flightNote" class="flightNote" style="display:none">
+        ✈️ International trip — flight assumed.</div>
+    </div>
+
+    <div class="row">
+      <button class="primary" id="go">Plan my trip</button>
+      <div id="loading"><div class="spinner"></div><span id="loadmsg">Planning…</span></div>
+    </div>
+  </div>
+
+  <!-- live agent progress -->
+  <div id="progress" class="card stack">
+    <h3 class="sec">Agents at work</h3>
+    <div id="steps"></div>
+  </div>
+
+  <!-- results -->
+  <div id="results" class="stack">
+    <div class="card">
+      <h2 class="trip-title" id="dest"></h2>
+      <p class="trip-meta" id="meta"></p>
+      <div class="prefs" id="prefs"></div>
+    </div>
+    <div class="tiles" id="tiles"></div>
+    <div class="card">
+      <h3 class="sec">Budget allocation</h3>
+      <div class="bar" id="bar"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="two">
+      <div class="card"><h3 class="sec">Transport</h3>
+        <div class="big" id="trName">—</div><div class="kv" id="trInfo"></div></div>
+      <div class="card"><h3 class="sec">Stay</h3>
+        <div class="big" id="stayName">—</div><div class="kv" id="stayInfo"></div></div>
+    </div>
+    <div class="card" id="mapCard">
+      <h3 class="sec">Your route</h3>
+      <div class="routeMeta" id="mapMeta">Loading route…</div>
+      <div id="map"></div>
+      <a id="gmapLink" class="gmap" href="#" target="_blank" rel="noopener">Open in Google Maps ↗</a>
+    </div>
+    <div class="card">
+      <h3 class="sec">Day-by-day itinerary</h3>
+      <div id="itin"></div>
+      <div class="health" id="health"></div>
+      <details class="notes"><summary>Behind the scenes — what the agents did</summary>
+        <ul id="notes"></ul></details>
+    </div>
+  </div>
+
+  <div id="error" class="card" style="display:none"><span class="err"></span></div>
+  <footer>Budget is a hard constraint enforced in code · itinerary is LLM-generated</footer>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const INDIA_MODES = [
+    ["train", "🚆 Train"], ["bus", "🚌 Bus"], ["bike", "🏍️ Bike"], ["car", "🚗 Car"],
+  ];
+  let inIndia = false, formSym = "$", mode = "flight";
+  const money = (n, sym) => (sym || formSym) + Math.round(n).toLocaleString();
+
+  // ---- transport picker (shown only for Indian destinations) ----
+  function renderModes() {
+    const box = $("modes"), note = $("flightNote");
+    if (inIndia) {
+      note.style.display = "none";
+      box.style.display = "flex";
+      box.innerHTML = INDIA_MODES.map(([m, label]) =>
+        `<div class="mode ${m === mode ? "sel" : ""}" data-m="${m}">${label}</div>`).join("");
+      box.querySelectorAll(".mode").forEach(el => el.onclick = () => {
+        mode = el.dataset.m; renderModes();
+      });
+    } else {
+      box.style.display = "none";
+      note.style.display = "block";
+    }
+  }
+
+  // ---- ask the server whether the destination is in India ----
+  let geoTimer = null;
+  $("to").addEventListener("input", () => {
+    clearTimeout(geoTimer);
+    geoTimer = setTimeout(checkGeo, 400);
+  });
+  async function checkGeo() {
+    const place = $("to").value.trim();
+    if (!place) return;
+    try {
+      const r = await fetch("/api/geo?place=" + encodeURIComponent(place));
+      const g = await r.json();
+      inIndia = g.in_india;
+      formSym = g.symbol;
+      $("sym").textContent = formSym;
+      mode = inIndia ? (INDIA_MODES.some(([m]) => m === mode) ? mode : "train") : "flight";
+      renderModes();
+    } catch (_) { /* ignore geo errors, keep defaults */ }
+  }
+
+  // ---- live agent progress (driven by Server-Sent Events) ----
+  // Groups mirror the graph: intake -> budget -> 4 agents in parallel -> resolver -> assemble.
+  const GROUPS = [
+    { nodes: [{ node: "intake",    ico: "📋", label: "Reading your trip details" }] },
+    { nodes: [{ node: "budget",    ico: "💰", label: "Splitting the budget" }] },
+    { label: "⚡ 4 agents running in parallel", nodes: [
+        { node: "transport", ico: "🚆", label: "Planning transport" },
+        { node: "lodging",   ico: "🏨", label: "Finding a place to stay" },
+        { node: "weather",   ico: "🌦️", label: "Checking the forecast" },
+        { node: "itinerary", ico: "🗺️", label: "Designing your itinerary" },
+    ] },
+    { nodes: [{ node: "resolver",  ico: "🔧", label: "Reconciling weather & activities" }] },
+    { nodes: [{ node: "assemble",  ico: "✅", label: "Assembling your final plan" }] },
+  ];
+  const ALL_STEPS = GROUPS.flatMap(g => g.nodes);
+  let stepState = {};   // node -> "pending" | "active" | "done"
+
+  function buildProgress() {
+    stepState = {};
+    ALL_STEPS.forEach(s => (stepState[s.node] = "pending"));
+    $("steps").innerHTML = GROUPS.map(g => {
+      const rows = g.nodes.map(s =>
+        `<div class="step pending" data-node="${s.node}">
+           <span class="mark"></span><span class="ico">${s.ico}</span>
+           <div class="body"><div class="lbl">${s.label}</div><div class="det"></div></div>
+         </div>`).join("");
+      return g.label
+        ? `<div class="grouphdr">${g.label}</div><div class="pgroup">${rows}</div>`
+        : rows;
+    }).join("");
+    refreshActive();
+  }
+
+  function setMark(node, st) {
+    const row = $("steps").querySelector(`[data-node="${node}"]`);
+    if (!row) return row;
+    row.className = "step " + st;
+    row.querySelector(".mark").innerHTML =
+      st === "active" ? '<span class="spinner sm"></span>' : st === "done" ? "✓" : "";
+    return row;
+  }
+
+  // First not-fully-done group is "active"; the 4 parallel agents light up together.
+  function refreshActive() {
+    let claimed = false;
+    for (const g of GROUPS) {
+      const allDone = g.nodes.every(s => stepState[s.node] === "done");
+      const active = !allDone && !claimed;
+      for (const s of g.nodes) {
+        if (stepState[s.node] === "done") continue;
+        stepState[s.node] = active ? "active" : "pending";
+        setMark(s.node, stepState[s.node]);
+      }
+      if (active) claimed = true;
+    }
+  }
+
+  function markDone(node, detail) {
+    stepState[node] = "done";
+    const row = setMark(node, "done");
+    if (row && detail) row.querySelector(".det").textContent = detail;
+  }
+  function onNode(node, detail) {
+    if (!(node in stepState)) return;   // unknown node -> ignore
+    markDone(node, detail);
+    refreshActive();
+  }
+  function finishAll() {
+    ALL_STEPS.forEach(s => { if (stepState[s.node] !== "done") markDone(s.node); });
+  }
+
+  function showError(msg) {
+    $("progress").style.display = "none";
+    $("results").style.display = "none";
+    $("error").style.display = "block";
+    $("error").querySelector(".err").textContent = "Something went wrong: " + msg;
+  }
+
+  // ---- parse one SSE frame ("event: x\ndata: {...}") ----
+  function handleFrame(frame) {
+    let ev = "message", data = "";
+    for (const line of frame.split("\n")) {
+      if (line.startsWith("event:")) ev = line.slice(6).trim();
+      else if (line.startsWith("data:")) data += line.slice(5).trim();
+    }
+    if (!data) return;
+    const payload = JSON.parse(data);
+    if (ev === "node") onNode(payload.node, payload.detail);
+    else if (ev === "done") { finishAll(); render(payload); }
+    else if (ev === "error") throw new Error(payload.error);
+  }
+
+  // ---- submit: POST, then read the streamed progress ----
+  async function plan() {
+    const origin = $("from").value.trim(), destination = $("to").value.trim();
+    const days = parseInt($("days").value, 10), budget = parseFloat($("budget").value);
+    if (!origin || !destination) { $("from").focus(); return; }
+    $("go").disabled = true;
+    $("loading").style.display = "flex"; $("loadmsg").textContent = "Planning…";
+    $("results").style.display = "none"; $("error").style.display = "none";
+    $("progress").style.display = "block"; buildProgress();
+    try {
+      const r = await fetch("/api/plan", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ origin, destination, days, budget, transport_mode: mode }),
+      });
+      if (!r.ok || !r.body) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.error || ("HTTP " + r.status));
+      }
+      const reader = r.body.getReader(), dec = new TextDecoder();
+      let buf = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let i;
+        while ((i = buf.indexOf("\n\n")) >= 0) {
+          handleFrame(buf.slice(0, i));
+          buf = buf.slice(i + 2);
+        }
+      }
+    } catch (e) {
+      showError(e.message);
+    } finally {
+      $("go").disabled = false; $("loading").style.display = "none";
+    }
+  }
+  $("go").onclick = plan;
+
+  const BUDGET_KEYS = [
+    ["transport", "Transport", "var(--transport)"],
+    ["lodging", "Lodging", "var(--lodging)"],
+    ["food", "Food", "var(--food)"],
+    ["activities", "Activities", "var(--activities)"],
+  ];
+  const WX = { sunny: "☀️", rain: "🌧️", cloudy: "☁️" };
+
+  function render(d) {
+    const s = d.spec, sym = s.symbol;
+    $("dest").textContent = `${s.origin} → ${s.destination}`;
+    $("meta").textContent = `${s.days} days · ${money(s.total_budget, sym)} · ${d.transport ? d.transport.label : ""}`;
+    $("prefs").innerHTML = (s.preferences || []).map(p => `<span class="pref">${p}</span>`).join("");
+
+    $("tiles").innerHTML = [
+      [money(s.total_budget, sym), "Total budget"],
+      [money(d.activities_spent, sym), "Activities spent"],
+      [s.days, "Days"],
+      [d.revision_count, "Plan revisions"],
+    ].map(([v, l]) => `<div class="tile"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
+
+    const a = d.allocation, total = BUDGET_KEYS.reduce((t, [k]) => t + a[k], 0);
+    $("bar").innerHTML = BUDGET_KEYS.map(([k, , c]) =>
+      `<div style="flex:${a[k]};background:${c}" title="${k}"></div>`).join("");
+    $("legend").innerHTML = BUDGET_KEYS.map(([k, label, c]) =>
+      `<div class="leg"><span class="sw" style="background:${c}"></span>${label}
+        <span class="amt">${money(a[k], sym)} · ${Math.round(a[k] / total * 100)}%</span></div>`).join("");
+
+    if (d.transport) {
+      $("trName").textContent = d.transport.label;
+      $("trInfo").innerHTML = `est. <b>${money(d.transport.cost, sym)}</b> for the trip`;
+    }
+    if (d.stay) {
+      $("stayName").textContent = d.stay.name;
+      $("stayInfo").innerHTML =
+        `<b>${money(d.stay.price_per_night, sym)}</b> / night · ${money(d.stay.price_per_night * s.days, sym)} total`;
+    }
+
+    $("itin").innerHTML = d.itinerary.map(day => {
+      const tag = day.outdoor ? `<span class="tag out">outdoor</span>` : `<span class="tag in">indoor</span>`;
+      const free = /^Free day/i.test(day.activity);
+      const query = free ? "" : (day.place || (day.activity + ", " + s.destination));
+      const place = day.place && day.place.toLowerCase() !== day.activity.toLowerCase()
+        ? `<div class="actplace">${day.place}</div>` : "";
+      return `<div class="day">
+        <div class="thumb" data-q="${encodeURIComponent(query)}">
+          <span class="ph">${free ? "🗓️" : "📍"}</span><img alt="" loading="lazy" />
+        </div>
+        <div class="date"><div class="d">${day.label}</div><div class="wd">${day.weekday}</div></div>
+        <div class="wx" title="${day.condition || ""}">${WX[day.condition] || "•"}</div>
+        <div class="act"><div class="actname">${day.activity}</div>${place}</div>${tag}
+        <div class="cost">${day.cost ? money(day.cost, sym) : "free"}</div></div>`;
+    }).join("");
+    loadItineraryImages();
+
+    const clean = (d.conflicts || []).length === 0;
+    $("health").innerHTML = clean
+      ? `✓ Weather-checked · no conflicts${d.revision_count ? " (fixed in " + d.revision_count + " revision)" : ""}`
+      : `⚠ ${d.conflicts.length} unresolved conflict(s)`;
+    $("health").style.color = clean ? "var(--good)" : "#d03b3b";
+    $("notes").innerHTML = (d.notes || []).map(n => `<li>${n}</li>`).join("");
+
+    $("results").style.display = "block";
+    $("results").scrollIntoView({ behavior: "smooth", block: "start" });
+
+    // Road route map: only for in-India car/bus/bike trips.
+    if (s.currency === "INR" && ["car", "bus", "bike"].includes(s.transport_mode)) {
+      showRoute(s.origin, s.destination, s.transport_mode);
+    } else {
+      $("mapCard").style.display = "none";
+    }
+  }
+
+  // ---- route map (Leaflet + OpenStreetMap, no API key) ----
+  const MODE_LABEL = { car: "🚗 Car", bus: "🚌 Bus", bike: "🏍️ Bike" };
+  let leafletMap = null, routeGroup = null;
+
+  function fmtDur(min) {
+    const h = Math.floor(min / 60), m = Math.round(min % 60);
+    return h ? `${h} hr ${m} min` : `${m} min`;
+  }
+
+  async function showRoute(origin, destination, mode) {
+    $("mapCard").style.display = "block";
+    $("mapMeta").textContent = "Loading route…";
+    // Google Maps link — a reliable fallback and a handy extra.
+    $("gmapLink").href = "https://www.google.com/maps/dir/?api=1"
+      + "&origin=" + encodeURIComponent(origin)
+      + "&destination=" + encodeURIComponent(destination)
+      + "&travelmode=" + (mode === "bike" ? "two-wheeler" : "driving");
+
+    if (typeof L === "undefined") {          // Leaflet CDN blocked / offline
+      $("mapMeta").innerHTML = `<span class="err">Map couldn't load.</span> Use the link below.`;
+      return;
+    }
+    if (!leafletMap) {
+      // Default view over India so the map shows something even before a route loads.
+      leafletMap = L.map("map", { scrollWheelZoom: false }).setView([22.35, 78.9], 4);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        { maxZoom: 18, attribution: "© OpenStreetMap contributors" }).addTo(leafletMap);
+    }
+    leafletMap.invalidateSize();
+    try {
+      const r = await fetch("/api/route?origin=" + encodeURIComponent(origin)
+        + "&destination=" + encodeURIComponent(destination));
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || data.error) {
+        // Bare 404 with no error body == /api/route isn't registered (stale server).
+        throw new Error((r.status === 404 && !data.error)
+          ? "route service not found — restart the server so /api/route loads."
+          : (data.error || data.detail || ("HTTP " + r.status)));
+      }
+      if (routeGroup) routeGroup.remove();
+      routeGroup = L.featureGroup().addTo(leafletMap);
+      L.polyline(data.geometry, { color: "#12b5e8", weight: 5, opacity: .9 }).addTo(routeGroup);
+      L.circleMarker(data.origin, { radius: 7, color: "#fff", weight: 2,
+        fillColor: "#0a7d4f", fillOpacity: 1 }).addTo(routeGroup).bindPopup("Start · " + origin);
+      L.circleMarker(data.destination, { radius: 7, color: "#fff", weight: 2,
+        fillColor: "#d03b3b", fillOpacity: 1 }).addTo(routeGroup).bindPopup("End · " + destination);
+      leafletMap.fitBounds(routeGroup.getBounds(), { padding: [30, 30] });
+      setTimeout(() => leafletMap.invalidateSize(), 150);
+      $("mapMeta").innerHTML = `${MODE_LABEL[mode] || mode} · `
+        + `<b>${data.distance_km.toLocaleString()} km</b> · about ${fmtDur(data.duration_min)}`;
+    } catch (e) {
+      $("mapMeta").innerHTML = `<span class="err">Couldn't load route: ${e.message}</span> `
+        + `Try the Google Maps link below.`;
+    }
+  }
+
+  // ---- fetch a real landmark photo for each itinerary day (lazy, non-blocking) ----
+  async function loadItineraryImages() {
+    for (const box of document.querySelectorAll("#itin .thumb[data-q]")) {
+      const q = decodeURIComponent(box.dataset.q || "");
+      if (!q) continue;
+      try {
+        const r = await fetch("/api/place-image?q=" + encodeURIComponent(q));
+        const d = await r.json();
+        if (!d || !d.image) continue;          // no photo -> keep the placeholder
+        const img = box.querySelector("img");
+        img.onload = () => box.classList.add("has-img");
+        if (d.title) img.alt = d.title;
+        img.src = d.image;
+      } catch (_) { /* keep placeholder */ }
+    }
+  }
+
+  // logout
+  $("logout").onclick = async e => {
+    e.preventDefault();
+    await fetch("/api/logout", { method: "POST" });
+    window.location.href = "/login";
+  };
+
+  renderModes();   // start in flight mode until a destination is entered
+</script>
+</body>
+</html>
