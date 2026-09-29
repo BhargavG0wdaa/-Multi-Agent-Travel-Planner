@@ -1,34 +1,36 @@
-# Travel Planner
+# AI Travel Planner
 
-A multi-agent trip planner built on [LangGraph](https://github.com/langchain-ai/langgraph).
-A structured trip request flows through intake → budget → parallel transport /
-lodging / weather / itinerary agents → a resolver that loops back to fix
-rainy-day conflicts → the final plan. A FastAPI web app streams each agent's
-progress live.
+A travel booking-style web app. **Flights** is live: search one-way, round-trip
+and multi-city flights with real airline offers from the
+[Duffel](https://duffel.com) API. Hotels, Homestays, Holiday Packages, Trains,
+Buses, Cabs and Tours are on the way.
 
 ## Setup
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -e .
-cp .env.example .env        # then add your GROQ_API_KEY
+cp .env.example .env
 ```
+
+Then get a free **Duffel test token** (no card needed) at
+<https://app.duffel.com/join>, and paste it into `.env` as `DUFFEL_ACCESS_TOKEN`.
+Test mode never books real tickets.
 
 ## Run
 
 ```bash
-travel-planner              # CLI demo on a sample trip
-travel-planner-web          # web app at http://127.0.0.1:8000
+travel-planner-web          # http://127.0.0.1:8000
 ```
+
+For development, `uvicorn travel_planner.api.app:app --reload` restarts on code changes.
 
 ## Layout
 
 ```
 src/travel_planner/
-├── config.py, llm.py       # settings from .env; the shared chat model
-├── cli.py                  # terminal demo
-├── graph/                  # state.py (data shapes), nodes.py (agents), build.py (wiring)
-├── services/               # outside-world helpers (geo/currency)
+├── config.py               # settings from .env
+├── services/               # outside APIs: http.py (shared client), duffel.py (flights)
 └── api/                    # FastAPI app, auth, HTML templates, static assets
 data/                       # local SQLite user DB (git-ignored)
 ```

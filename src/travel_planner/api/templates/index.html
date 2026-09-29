@@ -3,11 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>AI Travel Planner</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<title>Flights · AI Travel Planner</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -25,15 +21,11 @@
     --accent-deep: #0e9ecb;
     --navy:    #0a2540;
     --good:    #0a7d4f;
-    /* budget categories (colorblind-validated, fixed order) */
-    --transport:  #2a78d6;    /* blue */
-    --lodging:    #1baf7a;    /* aqua */
-    --food:       #eda100;    /* yellow */
-    --activities: #008300;    /* green */
     --shadow: 0 1px 2px rgba(12,26,43,.04), 0 18px 40px rgba(12,26,43,.07);
     --radius: 16px;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }   /* class display rules must never beat hidden */
   html, body { margin: 0; }
   body {
     font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -105,154 +97,195 @@
   .soon .sub { margin-bottom: 24px; }
   .soon .btn-navy { display: inline-block; text-decoration: none; }
 
-  header.hero-head { text-align: center; margin-bottom: 26px; }
+
+  h1 { font-size: clamp(26px, 4vw, 34px); font-weight: 800; letter-spacing: -.02em; line-height: 1.15; }
+  .sub { color: var(--ink-2); margin: 0 auto; max-width: 520px; }
   .badge { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .11em;
     text-transform: uppercase; color: var(--accent-deep);
     background: color-mix(in srgb, var(--accent) 12%, transparent);
-    padding: 5px 13px; border-radius: 999px; margin-bottom: 14px; }
-  h1 { font-size: clamp(30px, 5vw, 44px); font-weight: 800; margin: 0 0 8px; letter-spacing: -0.03em; line-height: 1.05; }
-  .sub { color: var(--ink-2); margin: 0 auto; max-width: 520px; }
-
+    padding: 5px 13px; border-radius: 999px; }
   .card { background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px; }
-  .stack > * + * { margin-top: 16px; }
-  .stack { margin-top: 22px; }
+    border-radius: var(--radius); box-shadow: var(--shadow); }
+  .wrap.wide { max-width: 1180px; }
+  button { font: inherit; color: inherit; }
 
-  /* ---- form ---- */
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
-  label { display: block; font-size: 13px; font-weight: 600; margin: 0 0 6px; }
-  .field { margin-bottom: 14px; }
-  input { width: 100%; padding: 11px 13px; font: inherit; color: var(--ink);
-    background: var(--field); border: 1px solid var(--border); border-radius: 10px; }
-  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; background: #fff; }
-  .money { position: relative; }
-  .money .sym { position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
-    color: var(--muted); font-weight: 600; }
-  .money input { padding-left: 26px; }
+  /* ================= flight search card ================= */
+  .fx { position: relative; padding: 18px 22px 46px; margin-bottom: 44px; }
+  .fx-top { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    flex-wrap: wrap; margin-bottom: 14px; }
+  .trip { display: flex; gap: 6px; flex-wrap: wrap; }
+  .trip label { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px;
+    border-radius: 999px; cursor: pointer; font-weight: 500; color: #33414f; }
+  .trip input { accent-color: var(--accent-deep); width: 16px; height: 16px; margin: 0; }
+  .trip label:has(input:checked) { background: color-mix(in srgb, var(--accent) 13%, transparent);
+    font-weight: 700; color: var(--ink); }
+  .fx-tag { color: var(--ink-2); font-size: 14px; }
 
-  #transportBox { margin-bottom: 14px; }
-  .modes { display: flex; flex-wrap: wrap; gap: 8px; }
-  .mode { flex: 1; min-width: 84px; text-align: center; cursor: pointer;
-    padding: 10px; border: 1px solid var(--border); border-radius: 10px;
-    background: var(--field); font-size: 14px; font-weight: 500; }
-  .mode:hover { border-color: var(--accent); }
-  .mode.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent);
-    color: var(--accent-deep); font-weight: 700; }
-  .flightNote { font-size: 14px; color: var(--ink-2); background: var(--field);
-    border: 1px dashed var(--border); border-radius: 10px; padding: 12px 14px; }
+  .fx-row { display: grid; border: 1px solid var(--border); border-radius: 14px; }
+  .fx-row.main { grid-template-columns: 1.35fr 1.35fr 1fr 1fr 1fr 1fr; }
+  .fx-row.multi { grid-template-columns: 1.35fr 1.35fr 1fr 44px; margin-top: 10px; }
+  .cell { position: relative; padding: 14px 18px 16px; border-left: 1px solid var(--border);
+    cursor: pointer; min-width: 0; text-align: left; background: none; border-top: 0;
+    border-right: 0; border-bottom: 0; transition: background .15s; }
+  .cell:first-child { border-left: 0; border-radius: 14px 0 0 14px; }
+  .cell[data-end=to] { padding-left: 30px; }        /* room for the swap button on the border */
+  .cell:hover, .cell.open { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+  .cell:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .lbl { font-size: 14px; color: var(--ink-2); display: flex; align-items: center; gap: 4px; }
+  .lbl .chev { width: 14px; height: 14px; color: var(--accent-deep); }
+  .val { font-size: 28px; font-weight: 800; letter-spacing: -.02em; line-height: 1.2; margin-top: 6px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .val small { font-size: 17px; font-weight: 600; letter-spacing: 0; }
+  .val.mid { font-size: 20px; line-height: 1.25; white-space: normal; }
+  .hint { font-size: 13.5px; color: var(--ink-2); margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ghost { font-size: 13.5px; font-weight: 600; color: var(--muted); margin-top: 8px; line-height: 1.35; }
+  .clear-ret { position: absolute; top: 10px; right: 10px; width: 22px; height: 22px; border-radius: 50%;
+    border: 0; background: var(--field); color: var(--ink-2); cursor: pointer; font-size: 14px; line-height: 1; }
+  .swap { position: absolute; z-index: 2; top: 50%; left: 0; width: 38px; height: 38px;
+    transform: translate(-50%, -50%); border-radius: 50%; border: 1px solid var(--border);
+    background: var(--surface); color: var(--accent-deep); cursor: pointer;
+    box-shadow: 0 2px 8px rgba(12,26,43,.08); display: grid; place-items: center; }
+  .swap:hover { background: #f0fbff; }
+  .swap svg { width: 18px; height: 18px; }
+  .date-input { position: absolute; inset: auto 0 0 0; width: 100%; height: 0; opacity: 0;
+    pointer-events: none; border: 0; padding: 0; }
+  .rm-leg { border: 0; border-left: 1px solid var(--border); background: none; cursor: pointer;
+    color: var(--muted); font-size: 20px; border-radius: 0 14px 14px 0; }
+  .rm-leg:hover { color: #c0392b; background: #fdf1f0; }
+  .add-leg { margin-top: 10px; border: 1.5px dashed var(--border); background: none; border-radius: 12px;
+    padding: 10px 16px; color: var(--accent-deep); font-weight: 600; cursor: pointer; }
+  .add-leg:hover { border-color: var(--accent); }
 
-  button.primary { font: inherit; font-weight: 700; color: #fff; background: var(--accent);
-    border: 0; border-radius: 10px; padding: 12px 24px; cursor: pointer; }
-  button.primary:hover { background: var(--accent-deep); }
-  button.primary:disabled { opacity: .55; cursor: default; }
-  .row { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+  /* popovers (place search, travellers, cabin) */
+  .pop { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; min-width: 320px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: 0 18px 50px rgba(12,26,43,.16); padding: 10px; cursor: default; }
+  .pop.right { left: auto; right: 0; }
+  .pop input[type=text] { width: 100%; font: inherit; font-size: 15px; padding: 10px 12px;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--field); outline: none; }
+  .pop input[type=text]:focus { border-color: var(--accent); background: #fff; }
+  .sugs { list-style: none; margin: 8px 0 0; padding: 0; max-height: 300px; overflow-y: auto; }
+  .sugs li { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px; cursor: pointer; }
+  .sugs li.hl, .sugs li:hover { background: var(--field); }
+  .sugs .ico { width: 20px; height: 20px; color: var(--muted); flex: none; }
+  .sugs .nm { font-weight: 600; font-size: 14.5px; }
+  .sugs .ds { font-size: 12.5px; color: var(--ink-2); }
+  .sugs .cd { margin-left: auto; font-weight: 700; font-size: 13px; color: var(--ink-2); }
+  .sugs .msg { cursor: default; color: var(--ink-2); font-size: 13.5px; }
+  .sugs .msg:hover { background: none; }
+  .ctr { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 10px 6px; }
+  .ctr + .ctr { border-top: 1px solid var(--border); }
+  .ctr .t { font-weight: 600; } .ctr .d { font-size: 12.5px; color: var(--ink-2); }
+  .step { display: flex; align-items: center; gap: 12px; }
+  .step button { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border);
+    background: var(--surface); cursor: pointer; font-size: 18px; line-height: 1; color: var(--accent-deep); }
+  .step button:disabled { color: var(--muted); opacity: .5; cursor: not-allowed; }
+  .step output { min-width: 16px; text-align: center; font-weight: 700; }
+  .opt { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; cursor: pointer; }
+  .opt:hover { background: var(--field); }
+  .opt input { accent-color: var(--accent-deep); }
+  .pop .done { width: 100%; margin-top: 8px; }
 
-  #loading { display: none; align-items: center; gap: 12px; color: var(--ink-2); }
-  .spinner { width: 18px; height: 18px; border: 2.5px solid var(--border);
-    border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
-  .spinner.sm { width: 14px; height: 14px; border-width: 2px; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  .fares { display: flex; align-items: center; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
+  .fares .ttl { font-weight: 800; line-height: 1.2; margin-right: 8px; }
+  .fare { border: 1px solid var(--border); border-radius: 12px; padding: 9px 16px; cursor: pointer;
+    background: var(--surface); min-width: 150px; }
+  .fare input { position: absolute; opacity: 0; pointer-events: none; }
+  .fare .t { font-weight: 700; display: block; } .fare .d { font-size: 13px; color: var(--ink-2); }
+  .fare:has(input:checked) { border-color: var(--accent); background: #f0fbff; }
+  .fare:has(input:checked) .t { color: var(--accent-deep); }
+  .fare:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-  /* ---- live agent progress ---- */
-  #progress { display: none; }
-  .grouphdr { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600;
-    letter-spacing: .03em; color: var(--accent-deep); text-transform: uppercase;
-    margin: 12px 0 6px; }
-  .grouphdr::after { content: ""; flex: 1; height: 1px; background: var(--border); }
-  .pgroup { border-left: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
-    margin-left: 9px; padding-left: 14px; }
-  .step { display: flex; align-items: center; gap: 12px; padding: 8px 0;
-    transition: opacity .25s ease; }
-  .step .mark { width: 20px; height: 20px; flex: none; display: grid; place-items: center; }
-  .step.pending .mark::after { content: ""; width: 12px; height: 12px;
-    border: 2px solid var(--border); border-radius: 50%; }
-  .step.done .mark { color: var(--good); font-weight: 800; }
-  .step .ico { width: 24px; text-align: center; font-size: 18px; flex: none; }
-  .step .body { flex: 1; min-width: 0; }
-  .step .lbl { font-weight: 600; font-size: 15px; }
-  .step .det { font-size: 13px; color: var(--ink-2); margin-top: 1px; overflow: hidden;
-    text-overflow: ellipsis; white-space: nowrap; }
-  .step.pending { opacity: .4; }
-  .step.active .lbl { color: var(--accent-deep); }
+  .search-btn { position: absolute; left: 50%; bottom: 0; transform: translate(-50%, 50%);
+    border: 0; border-radius: 999px; padding: 15px 76px; cursor: pointer;
+    font-size: 22px; font-weight: 800; letter-spacing: .06em; color: #fff;
+    background: linear-gradient(90deg, #4fc3f7, var(--accent) 45%, #1d6fe0);
+    box-shadow: 0 10px 26px rgba(18,120,232,.35); transition: transform .15s, box-shadow .15s; }
+  .search-btn:hover { transform: translate(-50%, 50%) translateY(-1px); box-shadow: 0 14px 30px rgba(18,120,232,.42); }
+  .search-btn:disabled { opacity: .7; cursor: wait; }
+  .btn-navy.done { border: 0; cursor: pointer; }
 
-  /* ---- route map (India + car/bus/bike) ---- */
-  #mapCard { display: none; }
-  .routeMeta { font-size: 14px; color: var(--ink-2); margin-bottom: 12px; }
-  .routeMeta b { color: var(--ink); }
-  #map { height: 380px; width: 100%; border-radius: 10px; border: 1px solid var(--border);
-    background: var(--field); z-index: 0; }
-  .gmap { display: inline-block; margin-top: 12px; font-size: 13px; font-weight: 600;
-    color: var(--accent); text-decoration: none; }
-  .gmap:hover { color: var(--accent-deep); }
+  /* ================= results ================= */
+  .res-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px;
+    flex-wrap: wrap; margin-bottom: 12px; }
+  .res-head h2 { margin: 0; font-size: 20px; letter-spacing: -.01em; }
+  .res-head .meta { color: var(--ink-2); font-size: 14px; }
+  .tools { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .seg { display: inline-flex; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 999px; padding: 3px; }
+  .seg button { border: 0; background: none; padding: 7px 14px; border-radius: 999px; cursor: pointer;
+    font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+  .seg button.on { background: var(--navy); color: #fff; }
+  .chk { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 500; cursor: pointer; }
+  .chk input { accent-color: var(--accent-deep); width: 16px; height: 16px; }
 
-  /* ---- results ---- */
-  #results { display: none; }
-  .trip-title { font-size: 23px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
-  .trip-meta { color: var(--ink-2); margin: 5px 0 0; font-size: 14px; }
-  .prefs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-  .pref { font-size: 12px; background: var(--field); border: 1px solid var(--border);
-    border-radius: 999px; padding: 3px 10px; color: var(--ink-2); }
-
-  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-  @media (max-width: 620px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
-  .tile { background: var(--field); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
-  .tile .v { font-size: 21px; font-weight: 700; }
-  .tile .l { font-size: 12px; color: var(--muted); margin-top: 2px; }
-
-  h3.sec { font-size: 13px; text-transform: uppercase; letter-spacing: .05em;
-    color: var(--muted); margin: 0 0 12px; }
-  .bar { display: flex; gap: 2px; height: 26px; border-radius: 6px; overflow: hidden; }
-  .bar > div:first-child { border-radius: 6px 0 0 6px; }
-  .bar > div:last-child { border-radius: 0 6px 6px 0; }
-  .legend { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 20px; margin-top: 14px; }
-  @media (max-width: 480px) { .legend { grid-template-columns: 1fr; } }
-  .leg { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-  .sw { width: 12px; height: 12px; border-radius: 3px; flex: none; }
-  .leg .amt { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--ink-2); }
-
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  @media (max-width: 560px) { .two { grid-template-columns: 1fr; } }
-  .big { font-size: 18px; font-weight: 700; margin: 2px 0 6px; }
-  .kv { font-size: 14px; color: var(--ink-2); } .kv b { color: var(--ink); }
-
-  .day { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-top: 1px solid var(--border); }
-  .day:first-child { border-top: 0; }
-  .thumb { width: 78px; height: 78px; flex: none; border-radius: 10px; overflow: hidden;
-    position: relative; border: 1px solid var(--border);
-    background: linear-gradient(135deg, #e9f1f4, #d6e6ea); }
-  .thumb .ph { position: absolute; inset: 0; display: grid; place-items: center;
-    font-size: 24px; color: var(--muted); transition: opacity .3s ease; }
-  .thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
-    opacity: 0; transition: opacity .45s ease, transform .35s ease; }
-  .thumb.has-img img { opacity: 1; }
-  .thumb.has-img .ph { opacity: 0; }
-  .thumb.has-img { cursor: zoom-in; }
-  .thumb.has-img:hover img { transform: scale(1.18); }
-  @media (max-width: 480px) { .thumb { width: 58px; height: 58px; } }
-  .day .date { width: 60px; flex: none; }
-  .day .date .d { font-weight: 700; font-size: 14px; } .day .date .wd { font-size: 12px; color: var(--muted); }
-  .wx { font-size: 22px; width: 30px; text-align: center; flex: none; }
-  .day .act { flex: 1; min-width: 0; font-weight: 500; }
-  .day .act .actname { font-weight: 600; }
-  .day .act .actplace { font-size: 12px; color: var(--muted); margin-top: 1px; }
-  .tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
-  .tag.out { color: var(--activities); background: color-mix(in srgb, var(--activities) 14%, transparent); }
-  .tag.in  { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
-  .cost { font-variant-numeric: tabular-nums; color: var(--ink-2); width: 62px; text-align: right; flex: none; }
-
-  .health { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--good); margin-top: 16px; }
-  details.notes { margin-top: 14px; }
-  details.notes summary { cursor: pointer; color: var(--muted); font-size: 13px; }
-  details.notes ul { margin: 10px 0 0; padding-left: 18px; color: var(--ink-2); font-size: 13px; }
-  .err { color: #d03b3b; font-weight: 600; }
+  .offer { padding: 16px 20px; margin-bottom: 12px; display: grid;
+    grid-template-columns: 1fr auto; gap: 12px 24px; align-items: center; }
+  .offer .slices { display: grid; gap: 14px; }
+  .sl { display: grid; grid-template-columns: 190px 1fr; gap: 16px; align-items: center; }
+  .air { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .logo-b { width: 34px; height: 34px; flex: none; border-radius: 8px; border: 1px solid var(--border);
+    display: grid; place-items: center; background: #fff; overflow: hidden; font-size: 11px; font-weight: 800;
+    color: var(--navy); }
+  .logo-b img { width: 26px; height: 26px; object-fit: contain; }
+  .air .n { font-weight: 700; font-size: 14px; line-height: 1.25; }
+  .air .f { font-size: 12px; color: var(--ink-2); }
+  .air .op { font-size: 11.5px; color: var(--muted); }
+  .times { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; }
+  .tm { font-size: 22px; font-weight: 800; letter-spacing: -.01em; line-height: 1.1; }
+  .tm sup { font-size: 11px; font-weight: 700; color: #c0392b; margin-left: 2px; }
+  .ap { font-size: 13px; color: var(--ink-2); font-weight: 600; }
+  .times .end { text-align: right; }
+  .path { text-align: center; font-size: 12.5px; color: var(--ink-2); }
+  .path .ln { height: 2px; background: var(--border); margin: 5px 0; position: relative; border-radius: 2px; }
+  .path .ln i { position: absolute; top: -3px; width: 8px; height: 8px; border-radius: 50%;
+    background: #fff; border: 2px solid #eda100; transform: translateX(-50%); }
+  .path .st { font-weight: 600; } .path .st.ns { color: var(--good); }
+  .price { text-align: right; }
+  .price .amt { font-size: 24px; font-weight: 800; letter-spacing: -.01em; }
+  .price .per { font-size: 12px; color: var(--ink-2); }
+  .more { grid-column: 1 / -1; border: 0; background: none; padding: 0; cursor: pointer; justify-self: start;
+    color: var(--accent-deep); font-weight: 600; font-size: 13px; }
+  .details { grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 10px; display: grid; gap: 8px; }
+  .dseg { display: grid; grid-template-columns: 120px 1fr auto; gap: 12px; font-size: 13.5px; }
+  .dseg .c { color: var(--ink-2); }
+  .skel { height: 96px; margin-bottom: 12px; border-radius: var(--radius);
+    background: linear-gradient(90deg, #eef2f5 25%, #f7f9fb 50%, #eef2f5 75%); background-size: 200% 100%;
+    animation: sh 1.3s infinite linear; }
+  @keyframes sh { to { background-position: -200% 0; } }
+  .state { text-align: center; padding: 34px 20px; color: var(--ink-2); }
+  .state .err { color: #b3261e; font-weight: 600; }
   footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 40px; }
+
+  @media (max-width: 980px) {
+    .fx-row.main { grid-template-columns: 1fr 1fr; }
+    .fx-row.main .cell:nth-child(n+3) { border-top: 1px solid var(--border); }
+    .fx-row.main .cell:nth-child(odd) { border-left: 0; }
+    .cell:first-child { border-radius: 14px 0 0 0; }
+    .fx-row.multi { grid-template-columns: 1fr 1fr; }
+    .fx-row.multi .cell:nth-child(3) { grid-column: 1 / 2; border-left: 0; border-top: 1px solid var(--border); }
+    .fx-row.multi .rm-leg { border-top: 1px solid var(--border); border-radius: 0 0 14px 0; }
+    .sl { grid-template-columns: 1fr; gap: 8px; }
+  }
+  @media (max-width: 560px) {
+    .fx { padding: 14px 14px 44px; }
+    .val { font-size: 22px; } .val small { font-size: 14px; }
+    .cell { padding: 12px 12px 14px; }
+    .pop { min-width: 0; width: calc(100vw - 40px); }
+    .offer { grid-template-columns: 1fr; }
+    .price { text-align: left; display: flex; align-items: baseline; gap: 8px; }
+    .search-btn { padding: 13px 54px; font-size: 19px; }
+    .fares .ttl { flex-basis: 100%; }
+    .fare { flex: 1; min-width: 0; }
+    .dseg { grid-template-columns: 1fr; gap: 2px; }
+  }
 </style>
 </head>
 <body>
 <header class="nav">
   <div class="navbar">
-    <a class="logo" href="/"><span class="go">AI</span>&nbsp;<span class="ex">Travel Planner</span></a>
+    <a class="logo" href="#"><span class="go">AI</span>&nbsp;<span class="ex">Travel Planner</span></a>
     <nav class="cats" id="cats" aria-label="Travel categories"></nav>
     <nav class="navlinks">
       <a href="#">Home</a>
@@ -260,86 +293,34 @@
     </nav>
   </div>
 </header>
-<div class="wrap" id="view-planner">
-  <header class="hero-head">
-    <span class="badge">Multi-Agent · LangGraph</span>
-    <h1>Plan your perfect trip</h1>
-    <p class="sub">Tell us where you're going. Agents plan it under a shared budget
-      and reconcile the weather with your activities.</p>
-  </header>
 
-  <!-- form -->
-  <div class="card">
-    <div class="grid2">
-      <div class="field"><label for="from">From</label>
-        <input id="from" placeholder="e.g. Mumbai" /></div>
-      <div class="field"><label for="to">To</label>
-        <input id="to" placeholder="e.g. Goa (or Paris)" /></div>
-    </div>
-    <div class="grid2">
-      <div class="field"><label for="days">How many days</label>
-        <input id="days" type="number" min="1" max="30" value="5" /></div>
-      <div class="field"><label for="budget">Budget</label>
-        <div class="money"><span class="sym" id="sym">$</span>
-          <input id="budget" type="number" min="0" step="100" value="3000" /></div></div>
+<main class="wrap wide" id="view-flights">
+  <form class="card fx" id="fx" autocomplete="off" novalidate>
+    <div class="fx-top">
+      <div class="trip" role="radiogroup" aria-label="Trip type">
+        <label><input type="radio" name="trip" value="oneway" checked /> One Way</label>
+        <label><input type="radio" name="trip" value="round" /> Round Trip</label>
+        <label><input type="radio" name="trip" value="multi" /> Multi City</label>
+      </div>
+      <div class="fx-tag">Book international and domestic flights</div>
     </div>
 
-    <div id="transportBox" class="field">
-      <label>Getting there</label>
-      <div id="modes" class="modes"></div>
-      <div id="flightNote" class="flightNote" style="display:none">
-        ✈️ International trip — flight assumed.</div>
+    <div id="rows"></div>
+
+    <div class="fares" role="radiogroup" aria-label="Special fare">
+      <div class="ttl">Select a<br />special fare</div>
+      <label class="fare"><input type="radio" name="fare" value="regular" checked />
+        <span class="t">Regular</span><span class="d">Regular fares</span></label>
+      <label class="fare"><input type="radio" name="fare" value="student" />
+        <span class="t">Student</span><span class="d">Where airlines offer them</span></label>
     </div>
 
-    <div class="row">
-      <button class="primary" id="go">Plan my trip</button>
-      <div id="loading"><div class="spinner"></div><span id="loadmsg">Planning…</span></div>
-    </div>
-  </div>
+    <button class="search-btn" id="searchBtn" type="submit">SEARCH</button>
+  </form>
 
-  <!-- live agent progress -->
-  <div id="progress" class="card stack">
-    <h3 class="sec">Agents at work</h3>
-    <div id="steps"></div>
-  </div>
-
-  <!-- results -->
-  <div id="results" class="stack">
-    <div class="card">
-      <h2 class="trip-title" id="dest"></h2>
-      <p class="trip-meta" id="meta"></p>
-      <div class="prefs" id="prefs"></div>
-    </div>
-    <div class="tiles" id="tiles"></div>
-    <div class="card">
-      <h3 class="sec">Budget allocation</h3>
-      <div class="bar" id="bar"></div>
-      <div class="legend" id="legend"></div>
-    </div>
-    <div class="two">
-      <div class="card"><h3 class="sec">Transport</h3>
-        <div class="big" id="trName">—</div><div class="kv" id="trInfo"></div></div>
-      <div class="card"><h3 class="sec">Stay</h3>
-        <div class="big" id="stayName">—</div><div class="kv" id="stayInfo"></div></div>
-    </div>
-    <div class="card" id="mapCard">
-      <h3 class="sec">Your route</h3>
-      <div class="routeMeta" id="mapMeta">Loading route…</div>
-      <div id="map"></div>
-      <a id="gmapLink" class="gmap" href="#" target="_blank" rel="noopener">Open in Google Maps ↗</a>
-    </div>
-    <div class="card">
-      <h3 class="sec">Day-by-day itinerary</h3>
-      <div id="itin"></div>
-      <div class="health" id="health"></div>
-      <details class="notes"><summary>Behind the scenes — what the agents did</summary>
-        <ul id="notes"></ul></details>
-    </div>
-  </div>
-
-  <div id="error" class="card" style="display:none"><span class="err"></span></div>
-  <footer>Budget is a hard constraint enforced in code · itinerary is LLM-generated</footer>
-</div>
+  <section id="results" aria-live="polite"></section>
+  <footer>Flight data from Duffel · test mode, no real tickets are booked</footer>
+</main>
 
 <div class="wrap" id="view-category" hidden>
   <div class="card soon">
@@ -347,341 +328,16 @@
     <span class="badge">Coming soon</span>
     <h1 id="soonTitle"></h1>
     <p class="sub" id="soonText"></p>
-    <a href="#" class="btn-navy">Back to the trip planner</a>
+    <a href="#" class="btn-navy">Back to flights</a>
   </div>
 </div>
 
 <script>
   const $ = id => document.getElementById(id);
-  const INDIA_MODES = [
-    ["train", "🚆 Train"], ["bus", "🚌 Bus"], ["bike", "🏍️ Bike"], ["car", "🚗 Car"],
-  ];
-  let inIndia = false, formSym = "$", mode = "flight";
-  const money = (n, sym) => (sym || formSym) + Math.round(n).toLocaleString();
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  // ---- transport picker (shown only for Indian destinations) ----
-  function renderModes() {
-    const box = $("modes"), note = $("flightNote");
-    if (inIndia) {
-      note.style.display = "none";
-      box.style.display = "flex";
-      box.innerHTML = INDIA_MODES.map(([m, label]) =>
-        `<div class="mode ${m === mode ? "sel" : ""}" data-m="${m}">${label}</div>`).join("");
-      box.querySelectorAll(".mode").forEach(el => el.onclick = () => {
-        mode = el.dataset.m; renderModes();
-      });
-    } else {
-      box.style.display = "none";
-      note.style.display = "block";
-    }
-  }
-
-  // ---- ask the server whether the destination is in India ----
-  let geoTimer = null;
-  $("to").addEventListener("input", () => {
-    clearTimeout(geoTimer);
-    geoTimer = setTimeout(checkGeo, 400);
-  });
-  async function checkGeo() {
-    const place = $("to").value.trim();
-    if (!place) return;
-    try {
-      const r = await fetch("/api/geo?place=" + encodeURIComponent(place));
-      const g = await r.json();
-      inIndia = g.in_india;
-      formSym = g.symbol;
-      $("sym").textContent = formSym;
-      mode = inIndia ? (INDIA_MODES.some(([m]) => m === mode) ? mode : "train") : "flight";
-      renderModes();
-    } catch (_) { /* ignore geo errors, keep defaults */ }
-  }
-
-  // ---- live agent progress (driven by Server-Sent Events) ----
-  // Groups mirror the graph: intake -> budget -> 3 agents in parallel -> itinerary -> resolver -> assemble.
-  const GROUPS = [
-    { nodes: [{ node: "intake",    ico: "📋", label: "Reading your trip details" }] },
-    { nodes: [{ node: "budget",    ico: "💰", label: "Splitting the budget" }] },
-    { label: "⚡ 3 agents running in parallel", nodes: [
-        { node: "transport", ico: "🚆", label: "Planning transport" },
-        { node: "lodging",   ico: "🏨", label: "Finding a place to stay" },
-        { node: "weather",   ico: "🌦️", label: "Checking the forecast" },
-    ] },
-    { nodes: [{ node: "itinerary", ico: "🗺️", label: "Designing your itinerary" }] },
-    { nodes: [{ node: "resolver",  ico: "🔧", label: "Reconciling weather & activities" }] },
-    { nodes: [{ node: "assemble",  ico: "✅", label: "Assembling your final plan" }] },
-  ];
-  const ALL_STEPS = GROUPS.flatMap(g => g.nodes);
-  let stepState = {};   // node -> "pending" | "active" | "done"
-
-  function buildProgress() {
-    stepState = {};
-    ALL_STEPS.forEach(s => (stepState[s.node] = "pending"));
-    $("steps").innerHTML = GROUPS.map(g => {
-      const rows = g.nodes.map(s =>
-        `<div class="step pending" data-node="${s.node}">
-           <span class="mark"></span><span class="ico">${s.ico}</span>
-           <div class="body"><div class="lbl">${s.label}</div><div class="det"></div></div>
-         </div>`).join("");
-      return g.label
-        ? `<div class="grouphdr">${g.label}</div><div class="pgroup">${rows}</div>`
-        : rows;
-    }).join("");
-    refreshActive();
-  }
-
-  function setMark(node, st) {
-    const row = $("steps").querySelector(`[data-node="${node}"]`);
-    if (!row) return row;
-    row.className = "step " + st;
-    row.querySelector(".mark").innerHTML =
-      st === "active" ? '<span class="spinner sm"></span>' : st === "done" ? "✓" : "";
-    return row;
-  }
-
-  // First not-fully-done group is "active"; the 3 parallel agents light up together.
-  function refreshActive() {
-    let claimed = false;
-    for (const g of GROUPS) {
-      const allDone = g.nodes.every(s => stepState[s.node] === "done");
-      const active = !allDone && !claimed;
-      for (const s of g.nodes) {
-        if (stepState[s.node] === "done") continue;
-        stepState[s.node] = active ? "active" : "pending";
-        setMark(s.node, stepState[s.node]);
-      }
-      if (active) claimed = true;
-    }
-  }
-
-  function markDone(node, detail) {
-    stepState[node] = "done";
-    const row = setMark(node, "done");
-    if (row && detail) row.querySelector(".det").textContent = detail;
-  }
-  function onNode(node, detail) {
-    if (!(node in stepState)) return;   // unknown node -> ignore
-    markDone(node, detail);
-    refreshActive();
-  }
-  function finishAll() {
-    ALL_STEPS.forEach(s => { if (stepState[s.node] !== "done") markDone(s.node); });
-  }
-
-  function showError(msg) {
-    $("progress").style.display = "none";
-    $("results").style.display = "none";
-    $("error").style.display = "block";
-    $("error").querySelector(".err").textContent = "Something went wrong: " + msg;
-  }
-
-  // ---- parse one SSE frame ("event: x\ndata: {...}") ----
-  function handleFrame(frame) {
-    let ev = "message", data = "";
-    for (const line of frame.split("\n")) {
-      if (line.startsWith("event:")) ev = line.slice(6).trim();
-      else if (line.startsWith("data:")) data += line.slice(5).trim();
-    }
-    if (!data) return;
-    const payload = JSON.parse(data);
-    if (ev === "node") onNode(payload.node, payload.detail);
-    else if (ev === "done") { finishAll(); render(payload); }
-    else if (ev === "error") throw new Error(payload.error);
-  }
-
-  // ---- submit: POST, then read the streamed progress ----
-  async function plan() {
-    const origin = $("from").value.trim(), destination = $("to").value.trim();
-    const days = parseInt($("days").value, 10), budget = parseFloat($("budget").value);
-    if (!origin || !destination) { $("from").focus(); return; }
-    $("go").disabled = true;
-    $("loading").style.display = "flex"; $("loadmsg").textContent = "Planning…";
-    $("results").style.display = "none"; $("error").style.display = "none";
-    $("progress").style.display = "block"; buildProgress();
-    try {
-      const r = await fetch("/api/plan", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ origin, destination, days, budget, transport_mode: mode }),
-      });
-      if (!r.ok || !r.body) {
-        const err = await r.json().catch(() => ({}));
-        throw new Error(err.error || ("HTTP " + r.status));
-      }
-      const reader = r.body.getReader(), dec = new TextDecoder();
-      let buf = "";
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, { stream: true });
-        let i;
-        while ((i = buf.indexOf("\n\n")) >= 0) {
-          handleFrame(buf.slice(0, i));
-          buf = buf.slice(i + 2);
-        }
-      }
-    } catch (e) {
-      showError(e.message);
-    } finally {
-      $("go").disabled = false; $("loading").style.display = "none";
-    }
-  }
-  $("go").onclick = plan;
-
-  const BUDGET_KEYS = [
-    ["transport", "Transport", "var(--transport)"],
-    ["lodging", "Lodging", "var(--lodging)"],
-    ["food", "Food", "var(--food)"],
-    ["activities", "Activities", "var(--activities)"],
-  ];
-  const WX = { sunny: "☀️", rain: "🌧️", cloudy: "☁️", storm: "⛈️", snow: "❄️", unknown: "❔" };
-
-  // Tooltip like "rain · 31°C · 85% chance of rain".
-  function wxTitle(day) {
-    if (!day.condition || day.condition === "unknown") return "No forecast yet (more than 16 days out)";
-    const parts = [day.condition];
-    if (day.high_c != null) parts.push(`${day.high_c}°C`);
-    if (day.rain_chance != null) parts.push(`${day.rain_chance}% chance of rain`);
-    return parts.join(" · ");
-  }
-
-  function render(d) {
-    const s = d.spec, sym = s.symbol;
-    $("dest").textContent = `${s.origin} → ${s.destination}`;
-    $("meta").textContent = `${s.days} days · ${money(s.total_budget, sym)} · ${d.transport ? d.transport.label : ""}`;
-    $("prefs").innerHTML = (s.preferences || []).map(p => `<span class="pref">${p}</span>`).join("");
-
-    $("tiles").innerHTML = [
-      [money(s.total_budget, sym), "Total budget"],
-      [money(d.activities_spent, sym), "Activities spent"],
-      [s.days, "Days"],
-      [d.revision_count, "Plan revisions"],
-    ].map(([v, l]) => `<div class="tile"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
-
-    const a = d.allocation, total = BUDGET_KEYS.reduce((t, [k]) => t + a[k], 0);
-    $("bar").innerHTML = BUDGET_KEYS.map(([k, , c]) =>
-      `<div style="flex:${a[k]};background:${c}" title="${k}"></div>`).join("");
-    $("legend").innerHTML = BUDGET_KEYS.map(([k, label, c]) =>
-      `<div class="leg"><span class="sw" style="background:${c}"></span>${label}
-        <span class="amt">${money(a[k], sym)} · ${Math.round(a[k] / total * 100)}%</span></div>`).join("");
-
-    if (d.transport) {
-      $("trName").textContent = d.transport.label;
-      $("trInfo").innerHTML = `est. <b>${money(d.transport.cost, sym)}</b> for the trip`;
-    }
-    if (d.stay) {
-      $("stayName").textContent = d.stay.name;
-      $("stayInfo").innerHTML =
-        `<b>${money(d.stay.price_per_night, sym)}</b> / night · ${money(d.stay.price_per_night * s.days, sym)} total`;
-    }
-
-    $("itin").innerHTML = d.itinerary.map(day => {
-      const tag = day.outdoor ? `<span class="tag out">outdoor</span>` : `<span class="tag in">indoor</span>`;
-      const free = /^Free day/i.test(day.activity);
-      const query = free ? "" : (day.place || (day.activity + ", " + s.destination));
-      const place = day.place && day.place.toLowerCase() !== day.activity.toLowerCase()
-        ? `<div class="actplace">${day.place}</div>` : "";
-      return `<div class="day">
-        <div class="thumb" data-q="${encodeURIComponent(query)}">
-          <span class="ph">${free ? "🗓️" : "📍"}</span><img alt="" loading="lazy" />
-        </div>
-        <div class="date"><div class="d">${day.label}</div><div class="wd">${day.weekday}</div></div>
-        <div class="wx" title="${wxTitle(day)}">${WX[day.condition] || "•"}</div>
-        <div class="act"><div class="actname">${day.activity}</div>${place}</div>${tag}
-        <div class="cost">${day.cost ? money(day.cost, sym) : "free"}</div></div>`;
-    }).join("");
-    loadItineraryImages();
-
-    const clean = (d.conflicts || []).length === 0;
-    $("health").innerHTML = clean
-      ? `✓ Weather-checked · no conflicts${d.revision_count ? " (fixed in " + d.revision_count + " revision)" : ""}`
-      : `⚠ ${d.conflicts.length} unresolved conflict(s)`;
-    $("health").style.color = clean ? "var(--good)" : "#d03b3b";
-    $("notes").innerHTML = (d.notes || []).map(n => `<li>${n}</li>`).join("");
-
-    $("results").style.display = "block";
-    $("results").scrollIntoView({ behavior: "smooth", block: "start" });
-
-    // Road route map: only for in-India car/bus/bike trips.
-    if (s.currency === "INR" && ["car", "bus", "bike"].includes(s.transport_mode)) {
-      showRoute(s.origin, s.destination, s.transport_mode);
-    } else {
-      $("mapCard").style.display = "none";
-    }
-  }
-
-  // ---- route map (Leaflet + OpenStreetMap, no API key) ----
-  const MODE_LABEL = { car: "🚗 Car", bus: "🚌 Bus", bike: "🏍️ Bike" };
-  let leafletMap = null, routeGroup = null;
-
-  function fmtDur(min) {
-    const h = Math.floor(min / 60), m = Math.round(min % 60);
-    return h ? `${h} hr ${m} min` : `${m} min`;
-  }
-
-  async function showRoute(origin, destination, mode) {
-    $("mapCard").style.display = "block";
-    $("mapMeta").textContent = "Loading route…";
-    // Google Maps link — a reliable fallback and a handy extra.
-    $("gmapLink").href = "https://www.google.com/maps/dir/?api=1"
-      + "&origin=" + encodeURIComponent(origin)
-      + "&destination=" + encodeURIComponent(destination)
-      + "&travelmode=" + (mode === "bike" ? "two-wheeler" : "driving");
-
-    if (typeof L === "undefined") {          // Leaflet CDN blocked / offline
-      $("mapMeta").innerHTML = `<span class="err">Map couldn't load.</span> Use the link below.`;
-      return;
-    }
-    if (!leafletMap) {
-      // Default view over India so the map shows something even before a route loads.
-      leafletMap = L.map("map", { scrollWheelZoom: false }).setView([22.35, 78.9], 4);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        { maxZoom: 18, attribution: "© OpenStreetMap contributors" }).addTo(leafletMap);
-    }
-    leafletMap.invalidateSize();
-    try {
-      const r = await fetch("/api/route?origin=" + encodeURIComponent(origin)
-        + "&destination=" + encodeURIComponent(destination));
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok || data.error) {
-        // Bare 404 with no error body == /api/route isn't registered (stale server).
-        throw new Error((r.status === 404 && !data.error)
-          ? "route service not found — restart the server so /api/route loads."
-          : (data.error || data.detail || ("HTTP " + r.status)));
-      }
-      if (routeGroup) routeGroup.remove();
-      routeGroup = L.featureGroup().addTo(leafletMap);
-      L.polyline(data.geometry, { color: "#12b5e8", weight: 5, opacity: .9 }).addTo(routeGroup);
-      L.circleMarker(data.origin, { radius: 7, color: "#fff", weight: 2,
-        fillColor: "#0a7d4f", fillOpacity: 1 }).addTo(routeGroup).bindPopup("Start · " + origin);
-      L.circleMarker(data.destination, { radius: 7, color: "#fff", weight: 2,
-        fillColor: "#d03b3b", fillOpacity: 1 }).addTo(routeGroup).bindPopup("End · " + destination);
-      leafletMap.fitBounds(routeGroup.getBounds(), { padding: [30, 30] });
-      setTimeout(() => leafletMap.invalidateSize(), 150);
-      $("mapMeta").innerHTML = `${MODE_LABEL[mode] || mode} · `
-        + `<b>${data.distance_km.toLocaleString()} km</b> · about ${fmtDur(data.duration_min)}`;
-    } catch (e) {
-      $("mapMeta").innerHTML = `<span class="err">Couldn't load route: ${e.message}</span> `
-        + `Try the Google Maps link below.`;
-    }
-  }
-
-  // ---- fetch a real landmark photo for each itinerary day (lazy, non-blocking) ----
-  async function loadItineraryImages() {
-    for (const box of document.querySelectorAll("#itin .thumb[data-q]")) {
-      const q = decodeURIComponent(box.dataset.q || "");
-      if (!q) continue;
-      try {
-        const r = await fetch("/api/place-image?q=" + encodeURIComponent(q));
-        const d = await r.json();
-        if (!d || !d.image) continue;          // no photo -> keep the placeholder
-        const img = box.querySelector("img");
-        img.onload = () => box.classList.add("has-img");
-        if (d.title) img.alt = d.title;
-        img.src = d.image;
-      } catch (_) { /* keep placeholder */ }
-    }
-  }
-
-  // ---- category tabs + views (hash routing: #flights, #hotels, ...; empty = planner) ----
+  // ---- category tabs + views (hash routing: #hotels, #trains, ...; empty or #flights = flights) ----
   // Line icons, drawn with currentColor so the active tab tints them.
   const ICONS = {
     plane: '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
@@ -696,9 +352,9 @@
   const svg = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
 
-  // One entry per tab. To build a category, give it its own view and drop its "soon" text.
+  // One entry per tab. A tab without "soon" text has its own view (flights = the home view).
   const CATEGORIES = [
-    { id: "flights",  label: "Flights",             icon: "plane",   soon: "Search and compare flights between any two cities, with fares that feed straight into your trip budget." },
+    { id: "flights",  label: "Flights",             icon: "plane", },
     { id: "hotels",   label: "Hotels",              icon: "hotel",   soon: "Find hotels by area, price and rating, and see how each one fits your lodging budget." },
     { id: "homestays",label: "Homestays & Villas",  icon: "home",    soon: "Browse homestays and villas for longer stays, families and groups." },
     { id: "packages", label: "Holiday Packages",    icon: "beach",   soon: "Ready-made holiday packages that bundle travel, stay and activities." },
@@ -711,28 +367,439 @@
   $("cats").innerHTML = CATEGORIES.map(c =>
     `<a class="cat" href="#${c.id}" data-cat="${c.id}">${svg(c.icon)}<span>${c.label}</span></a>`).join("");
 
+
+  // ================= flight search =================
+  const UI = {
+    chev: '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+    swap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h15l-4-4M20 16H5l4 4"/></svg>',
+  };
+
+  // Shown before the user types, and usable even without the Duffel token.
+  const POPULAR = [
+    { code: "BLR", city: "Bengaluru", name: "Kempegowda International Airport", type: "airport", country: "IN" },
+    { code: "DEL", city: "New Delhi", name: "Indira Gandhi International Airport", type: "airport", country: "IN" },
+    { code: "BOM", city: "Mumbai", name: "Chhatrapati Shivaji Maharaj International Airport", type: "airport", country: "IN" },
+    { code: "MAA", city: "Chennai", name: "Chennai International Airport", type: "airport", country: "IN" },
+    { code: "HYD", city: "Hyderabad", name: "Rajiv Gandhi International Airport", type: "airport", country: "IN" },
+    { code: "CCU", city: "Kolkata", name: "Netaji Subhas Chandra Bose International Airport", type: "airport", country: "IN" },
+    { code: "GOI", city: "Goa", name: "Dabolim Airport", type: "airport", country: "IN" },
+    { code: "DXB", city: "Dubai", name: "Dubai International Airport", type: "airport", country: "AE" },
+    { code: "SIN", city: "Singapore", name: "Changi Airport", type: "airport", country: "SG" },
+    { code: "LHR", city: "London", name: "Heathrow Airport", type: "airport", country: "GB" },
+  ];
+  const CABIN = { economy: "Economy", premium_economy: "Premium Economy", business: "Business", first: "First" };
+
+  // ---- dates are plain "YYYY-MM-DD" strings, always in local time ----
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const parse = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+  const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
+  const TODAY = iso(new Date());
+  const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const dayName = s => parse(s).toLocaleDateString("en-US", { weekday: "long" });
+  const shortDate = s => parse(s).toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "short" });
+
+  // ---- the whole form lives in one state object; renderRows() draws it ----
+  const S = {
+    trip: "oneway",                       // oneway | round | multi
+    legs: [{ from: POPULAR[0], to: POPULAR[1], date: addDays(TODAY, 7) }],
+    ret: null,                            // return date (round trip only)
+    adults: 1, children: 0, infants: 0,
+    cabin: "economy",
+  };
+
+  const paxTotal = () => S.adults + S.children + S.infants;
+  function paxText() {
+    const p = [];
+    p.push(`${S.adults} Adult${S.adults > 1 ? "s" : ""}`);
+    if (S.children) p.push(`${S.children} Child${S.children > 1 ? "ren" : ""}`);
+    if (S.infants) p.push(`${S.infants} Infant${S.infants > 1 ? "s" : ""}`);
+    return p.join(", ");
+  }
+
+  function placeCell(i, end) {
+    const p = S.legs[i][end];
+    const swap = end === "to"
+      ? `<button type="button" class="swap" data-act="swap" data-leg="${i}" aria-label="Swap From and To">${UI.swap}</button>` : "";
+    const body = p
+      ? `<div class="val">${esc(p.city)}</div><div class="hint">${esc(p.code)}, ${esc(p.name)}</div>`
+      : `<div class="val" style="color:var(--muted)">Select city</div><div class="hint">Airport or city</div>`;
+    return `<div class="cell" role="button" tabindex="0" data-act="place" data-leg="${i}" data-end="${end}">
+      ${swap}<div class="lbl">${end === "from" ? "From" : "To"}</div>${body}</div>`;
+  }
+
+  function dateCell(i) {
+    const d = S.legs[i].date, min = i ? S.legs[i - 1].date : TODAY;
+    const [, m, day] = d.split("-");
+    return `<div class="cell" role="button" tabindex="0" data-act="date">
+      <div class="lbl">Departure ${UI.chev}</div>
+      <div class="val">${+day} <small>${MON[+m - 1]}'${d.slice(2, 4)}</small></div>
+      <div class="hint">${dayName(d)}</div>
+      <input type="date" class="date-input" data-leg="${i}" value="${d}" min="${min}" tabindex="-1" aria-label="Departure date" /></div>`;
+  }
+
+  function returnCell() {
+    const r = S.ret, min = S.legs[0].date;
+    const body = r
+      ? (() => { const [, m, day] = r.split("-");
+          return `<button type="button" class="clear-ret" data-act="clear-ret" aria-label="Remove return">×</button>
+            <div class="val">${+day} <small>${MON[+m - 1]}'${r.slice(2, 4)}</small></div><div class="hint">${dayName(r)}</div>`; })()
+      : `<div class="ghost">Tap to add a return date</div>`;
+    return `<div class="cell" role="button" tabindex="0" data-act="date">
+      <div class="lbl">Return ${UI.chev}</div>${body}
+      <input type="date" class="date-input" data-ret="1" value="${r || ""}" min="${min}" tabindex="-1" aria-label="Return date" /></div>`;
+  }
+
+  const paxCell = () => `<div class="cell" role="button" tabindex="0" data-act="pax">
+      <div class="lbl">Travellers ${UI.chev}</div>
+      <div class="val" id="paxVal">${paxTotal()}</div>
+      <div class="hint" id="paxHint">${paxTotal() === S.adults ? (S.adults > 1 ? "Adults" : "Adult") : "Travellers"}</div></div>`;
+
+  const cabinCell = () => `<div class="cell" role="button" tabindex="0" data-act="cabin">
+      <div class="lbl">Cabin Class ${UI.chev}</div><div class="val mid" id="cabinVal">${CABIN[S.cabin]}</div></div>`;
+
+  function renderRows() {
+    const multi = S.trip === "multi";
+    let html = `<div class="fx-row main" style="${multi ? "grid-template-columns:1.35fr 1.35fr 1fr 1fr 1fr" : ""}">
+      ${placeCell(0, "from")}${placeCell(0, "to")}${dateCell(0)}${multi ? "" : returnCell()}${paxCell()}${cabinCell()}</div>`;
+    if (multi) {
+      for (let i = 1; i < S.legs.length; i++) {
+        html += `<div class="fx-row multi">${placeCell(i, "from")}${placeCell(i, "to")}${dateCell(i)}
+          <button type="button" class="rm-leg" data-act="rm-leg" data-leg="${i}" aria-label="Remove flight ${i + 1}"
+            ${S.legs.length <= 2 ? "disabled style='visibility:hidden'" : ""}>×</button></div>`;
+      }
+      if (S.legs.length < 5) html += `<button type="button" class="add-leg" data-act="add-leg">+ Add another city</button>`;
+    }
+    $("rows").innerHTML = html;
+  }
+
+  function setTrip(trip) {
+    S.trip = trip;
+    document.querySelector(`input[name=trip][value=${trip}]`).checked = true;
+    if (trip !== "round") S.ret = null;
+    if (trip === "round" && !S.ret) S.ret = addDays(S.legs[0].date, 3);
+    if (trip === "multi" && S.legs.length < 2)
+      S.legs.push({ from: S.legs[0].to, to: null, date: addDays(S.legs[0].date, 2) });
+    if (trip !== "multi") S.legs = [S.legs[0]];
+    renderRows();
+  }
+  document.querySelectorAll("input[name=trip]").forEach(r => r.onchange = () => setTrip(r.value));
+
+  // ---- popovers: one at a time, anchored inside the clicked cell ----
+  let pop = null;
+  function closePop() {
+    if (!pop) return;
+    pop.cell.classList.remove("open");
+    pop.el.remove();
+    pop = null;
+  }
+  function openPop(cell, html, right = false) {
+    closePop();
+    const el = document.createElement("div");
+    el.className = "pop" + (right ? " right" : "");
+    el.innerHTML = html;
+    cell.appendChild(el);
+    cell.classList.add("open");
+    pop = { el, cell };
+    return el;
+  }
+  document.addEventListener("mousedown", e => { if (pop && !pop.cell.contains(e.target)) closePop(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && pop) { const c = pop.cell; closePop(); c.focus(); } });
+
+  // Place search: popular list first, then live Duffel suggestions as you type.
+  const suggestCache = {};
+  function placePop(cell, i, end) {
+    const el = openPop(cell, `<input type="text" placeholder="Type a city or airport" aria-label="${end === "from" ? "From" : "To"}" />
+      <ul class="sugs" role="listbox"></ul>`);
+    const input = el.querySelector("input"), list = el.querySelector("ul");
+    let items = [], hl = 0, timer = null, note = "";
+
+    const draw = () => {
+      const q = input.value.trim().toUpperCase();
+      const opts = [...items];
+      if (/^[A-Z]{3}$/.test(q) && !opts.some(p => p.code === q))
+        opts.push({ code: q, city: q, name: "Use this airport code", type: "code" });
+      items = opts;
+      hl = Math.min(hl, Math.max(opts.length - 1, 0));
+      list.innerHTML = (note ? `<li class="msg">${esc(note)}</li>` : "") + (opts.length ? opts.map((p, k) => `
+        <li role="option" data-k="${k}" class="${k === hl ? "hl" : ""}">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ICONS[p.type === "city" ? "hotel" : "plane"]}</svg>
+          <div><div class="nm">${esc(p.city)}${p.country ? `, ${esc(p.country)}` : ""}</div><div class="ds">${esc(p.name)}</div></div>
+          <span class="cd">${esc(p.code)}</span></li>`).join("")
+        : (input.value.trim().length >= 2 && !note ? `<li class="msg">No airports found. Try another name or a 3-letter code.</li>` : ""));
+    };
+    const pick = p => {
+      const place = { code: p.code, city: p.city, name: p.type === "code" ? p.code : p.name, type: p.type };
+      S.legs[i][end] = place;
+      if (end === "to" && S.legs[i + 1] && !S.legs[i + 1].from) S.legs[i + 1].from = place;
+      closePop(); renderRows();
+      if (end === "from" && !S.legs[i].to) document.querySelector(`[data-act=place][data-leg="${i}"][data-end=to]`)?.click();
+    };
+    const search = async () => {
+      const q = input.value.trim().toLowerCase();
+      note = "";
+      if (q.length < 2) { items = POPULAR.filter(p => p.city.toLowerCase().startsWith(q) || !q); draw(); return; }
+      if (!suggestCache[q]) {
+        try {
+          const r = await fetch("/api/places?q=" + encodeURIComponent(q));
+          const d = await r.json();
+          if (!r.ok) { note = "Live airport search isn't set up yet. You can still type a 3-letter airport code."; }
+          suggestCache[q] = d.places || [];
+        } catch (_) { suggestCache[q] = []; }
+      }
+      if (input.value.trim().toLowerCase() !== q) return;          // a newer keystroke won
+      const local = POPULAR.filter(p => (p.city + " " + p.code).toLowerCase().includes(q));
+      const live = suggestCache[q];
+      items = live.length ? live : local;
+      hl = 0; draw();
+    };
+    input.oninput = () => { clearTimeout(timer); timer = setTimeout(search, 200); };
+    input.onkeydown = e => {
+      if (e.key === "ArrowDown") { hl = Math.min(hl + 1, items.length - 1); draw(); e.preventDefault(); }
+      else if (e.key === "ArrowUp") { hl = Math.max(hl - 1, 0); draw(); e.preventDefault(); }
+      else if (e.key === "Enter") { e.preventDefault(); if (items[hl]) pick(items[hl]); }
+    };
+    list.onmousedown = e => { const li = e.target.closest("li[data-k]"); if (li) { e.preventDefault(); pick(items[+li.dataset.k]); } };
+    items = POPULAR; draw(); input.focus();
+  }
+
+  function paxPop(cell) {
+    const rows = [
+      ["adults", "Adults", "12 years and above"],
+      ["children", "Children", "2 to 11 years"],
+      ["infants", "Infants", "Under 2 years, on an adult's lap"],
+    ];
+    const el = openPop(cell, rows.map(([k, t, d]) => `<div class="ctr"><div><div class="t">${t}</div><div class="d">${d}</div></div>
+      <div class="step"><button type="button" data-k="${k}" data-d="-1" aria-label="Fewer ${t}">−</button>
+      <output data-o="${k}">${S[k]}</output>
+      <button type="button" data-k="${k}" data-d="1" aria-label="More ${t}">+</button></div></div>`).join("")
+      + `<button type="button" class="btn-navy done">Done</button>`, true);
+    const sync = () => {
+      rows.forEach(([k]) => {
+        el.querySelector(`[data-o=${k}]`).textContent = S[k];
+        const min = k === "adults" ? 1 : 0;
+        const max = k === "infants" ? S.adults : 9;
+        el.querySelector(`[data-k=${k}][data-d="-1"]`).disabled = S[k] <= min;
+        el.querySelector(`[data-k=${k}][data-d="1"]`).disabled = S[k] >= max || paxTotal() >= 9;
+      });
+      $("paxVal").textContent = paxTotal();
+      $("paxHint").textContent = paxTotal() === S.adults ? (S.adults > 1 ? "Adults" : "Adult") : "Travellers";
+    };
+    el.onclick = e => {
+      const b = e.target.closest("button[data-k]");
+      if (b) { S[b.dataset.k] += +b.dataset.d; S.infants = Math.min(S.infants, S.adults); sync(); }
+      if (e.target.closest(".done")) closePop();
+    };
+    sync();
+  }
+
+  function cabinPop(cell) {
+    const el = openPop(cell, Object.entries(CABIN).map(([k, t]) =>
+      `<label class="opt"><input type="radio" name="cabinopt" value="${k}" ${k === S.cabin ? "checked" : ""} /> ${t}</label>`).join(""), true);
+    el.onchange = e => { S.cabin = e.target.value; $("cabinVal").textContent = CABIN[S.cabin]; closePop(); };
+  }
+
+  // One click handler for every cell and button in the rows.
+  $("rows").addEventListener("click", e => {
+    if (e.target.closest(".pop")) return;
+    const t = e.target.closest("[data-act]");
+    if (!t) return;
+    const i = +t.dataset.leg || 0;
+    switch (t.dataset.act) {
+      case "swap": {
+        e.stopPropagation();
+        const L = S.legs[i]; [L.from, L.to] = [L.to, L.from]; renderRows(); break;
+      }
+      case "clear-ret": setTrip("oneway"); break;
+      case "place": if (pop?.cell !== t) placePop(t, i, t.dataset.end); break;
+      case "date": {
+        closePop();
+        const input = t.querySelector(".date-input");
+        try { input.showPicker(); } catch (_) { input.focus(); }
+        break;
+      }
+      case "pax": if (pop?.cell !== t) paxPop(t); break;
+      case "cabin": if (pop?.cell !== t) cabinPop(t); break;
+      case "rm-leg": S.legs.splice(i, 1); renderRows(); break;
+      case "add-leg": {
+        const last = S.legs[S.legs.length - 1];
+        S.legs.push({ from: last.to, to: null, date: addDays(last.date, 2) }); renderRows(); break;
+      }
+    }
+  });
+  $("rows").addEventListener("keydown", e => {
+    if ((e.key === "Enter" || e.key === " ") && e.target.matches(".cell")) { e.preventDefault(); e.target.click(); }
+  });
+  $("rows").addEventListener("change", e => {
+    const inp = e.target.closest(".date-input");
+    if (!inp || !inp.value) return;
+    if (inp.dataset.ret) { S.ret = inp.value; setTrip("round"); return; }
+    const i = +inp.dataset.leg;
+    S.legs[i].date = inp.value;
+    for (let k = i + 1; k < S.legs.length; k++)          // keep later flights in order
+      if (S.legs[k].date < S.legs[k - 1].date) S.legs[k].date = S.legs[k - 1].date;
+    if (S.ret && S.ret < S.legs[0].date) S.ret = S.legs[0].date;
+    renderRows();
+  });
+
+  // ---- search + results ----
+  let offers = [], sortBy = "price", nonstopOnly = false, lastQuery = null;
+
+  function buildLegs() {
+    if (S.trip === "round")
+      return [S.legs[0], { from: S.legs[0].to, to: S.legs[0].from, date: S.ret }];
+    return S.legs;
+  }
+  function validate(legs) {
+    for (const [k, l] of legs.entries()) {
+      const n = legs.length > 1 ? ` for flight ${k + 1}` : "";
+      if (!l.from || !l.to) return `Choose where you're flying from and to${n}.`;
+      if (l.from.code === l.to.code) return `From and To can't be the same${n}.`;
+    }
+    if (S.trip === "round" && !S.ret) return "Choose a return date.";
+    return null;
+  }
+
+  $("fx").onsubmit = async e => {
+    e.preventDefault();
+    closePop();
+    const legs = buildLegs();
+    const problem = validate(legs);
+    if (problem) return showState(problem, true);
+
+    const fare = document.querySelector("input[name=fare]:checked").value;
+    lastQuery = { legs, pax: paxText(), cabin: CABIN[S.cabin], fare };
+    $("searchBtn").disabled = true;
+    $("searchBtn").textContent = "SEARCHING…";
+    $("results").innerHTML = `<div class="state">Checking airlines… this can take up to 20 seconds.</div>`
+      + '<div class="skel"></div>'.repeat(3);
+    $("results").scrollIntoView({ behavior: "smooth", block: "start" });
+    try {
+      const r = await fetch("/api/flights/search", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          legs: legs.map(l => ({ origin: l.from.code, destination: l.to.code, date: l.date })),
+          adults: S.adults, children: S.children, infants: S.infants, cabin: S.cabin, fare,
+        }),
+      });
+      if (r.status === 401) { window.location.href = "/login"; return; }
+      const d = await r.json();
+      if (!r.ok) return showState(d.error || "Search failed.", true);
+      offers = d.offers || [];
+      renderResults();
+    } catch (_) {
+      showState("Couldn't reach the server. Is it still running?", true);
+    } finally {
+      $("searchBtn").disabled = false;
+      $("searchBtn").textContent = "SEARCH";
+    }
+  };
+
+  function showState(msg, isErr) {
+    $("results").innerHTML = `<div class="card state"><span class="${isErr ? "err" : ""}">${esc(msg)}</span></div>`;
+  }
+
+  const hm = s => (s || "").slice(11, 16);                    // "2026-10-15T06:15:00" -> "06:15"
+  const dur = m => m == null ? "" : `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
+  const dayDiff = (a, b) => Math.round((parse(b.slice(0, 10)) - parse(a.slice(0, 10))) / 864e5);
+  const money = (n, cur) => {
+    try { return new Intl.NumberFormat(undefined, { style: "currency", currency: cur, maximumFractionDigits: 0 }).format(n); }
+    catch (_) { return `${cur} ${Math.round(n).toLocaleString()}`; }
+  };
+
+  function sliceHtml(s) {
+    const segs = s.segments;
+    const first = segs[0]?.carrier || {};
+    const nums = segs.map(g => `${esc(g.carrier.code || "")} ${esc(g.flight_number || "")}`).join(" · ");
+    const ops = [...new Set(segs.filter(g => g.operator?.name && g.operator.name !== g.carrier.name)
+      .map(g => g.operator.name))];
+    const logo = first.logo
+      ? `<img src="${esc(first.logo)}" alt="" onerror="this.replaceWith(document.createTextNode('${esc(first.code || "")}'))" />`
+      : esc(first.code || "✈");
+    const plus = s.depart && s.arrive ? dayDiff(s.depart, s.arrive) : 0;
+    const via = segs.slice(0, -1).map(g => g.destination.code).join(", ");
+    const dots = segs.slice(0, -1).map((_, k) => `<i style="left:${((k + 1) / segs.length) * 100}%"></i>`).join("");
+    return `<div class="sl">
+      <div class="air"><span class="logo-b">${logo}</span>
+        <div><div class="n">${esc(first.name || "Airline")}</div><div class="f">${nums}</div>
+        ${ops.length ? `<div class="op">Operated by ${esc(ops.join(", "))}</div>` : ""}</div></div>
+      <div class="times">
+        <div><div class="tm">${hm(s.depart)}</div><div class="ap">${esc(s.origin.code)}</div></div>
+        <div class="path"><div>${dur(s.duration_min)}</div><div class="ln">${dots}</div>
+          <div class="st ${s.stops ? "" : "ns"}">${s.stops ? `${s.stops} stop${s.stops > 1 ? "s" : ""} · ${esc(via)}` : "Non-stop"}</div></div>
+        <div class="end"><div class="tm">${hm(s.arrive)}${plus > 0 ? `<sup>+${plus}</sup>` : ""}</div><div class="ap">${esc(s.destination.code)}</div></div>
+      </div></div>`;
+  }
+
+  function detailsHtml(o) {
+    return o.slices.flatMap(s => s.segments).map(g => `<div class="dseg">
+      <div><b>${esc(g.origin.code)} → ${esc(g.destination.code)}</b></div>
+      <div class="c">${esc(g.carrier.name || "")} ${esc(g.carrier.code || "")} ${esc(g.flight_number || "")}${
+        g.operator?.name && g.operator.name !== g.carrier.name ? ` · operated by ${esc(g.operator.name)}` : ""}</div>
+      <div>${esc((g.depart || "").slice(0, 10))} · ${hm(g.depart)}–${hm(g.arrive)} · ${dur(g.duration_min)}</div></div>`).join("");
+  }
+
+  function renderResults() {
+    const q = lastQuery;
+    const route = S.trip === "round"
+      ? `${q.legs[0].from.code} ⇄ ${q.legs[0].to.code}`
+      : [q.legs[0].from.code, ...q.legs.map(l => l.to.code)].join(" → ");
+    let list = offers.filter(o => !nonstopOnly || o.slices.every(s => s.stops === 0));
+    const key = { price: o => o.price, duration: o => o.duration_min, depart: o => o.slices[0]?.depart || "" }[sortBy];
+    list = [...list].sort((a, b) => key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0);
+
+    const head = `<div class="res-head">
+      <div><h2>${esc(route)}</h2>
+        <div class="meta">${q.legs.map(l => shortDate(l.date)).join(" – ")} · ${esc(q.pax)} · ${esc(q.cabin)}${
+          q.fare === "student" ? " · Student fare" : ""} · ${list.length} flight${list.length === 1 ? "" : "s"}</div></div>
+      <div class="tools">
+        <div class="seg" role="group" aria-label="Sort by">
+          ${[["price", "Cheapest"], ["duration", "Fastest"], ["depart", "Earliest"]].map(([k, t]) =>
+            `<button type="button" data-sort="${k}" class="${k === sortBy ? "on" : ""}">${t}</button>`).join("")}
+        </div>
+        <label class="chk"><input type="checkbox" id="nonstop" ${nonstopOnly ? "checked" : ""} /> Non-stop only</label>
+      </div></div>`;
+
+    const body = list.length ? list.map((o, k) => `<article class="card offer">
+        <div class="slices">${o.slices.map(sliceHtml).join("")}</div>
+        <div class="price"><div class="amt">${money(o.price, o.currency)}</div>
+          <div class="per">total${paxTotal() > 1 ? ` · ${paxTotal()} travellers` : ""}</div></div>
+        <button type="button" class="more" data-k="${k}" aria-expanded="false">Flight details ▾</button>
+        <div class="details" hidden>${detailsHtml(o)}</div></article>`).join("")
+      : `<div class="card state">${offers.length
+          ? "No non-stop flights for this search. Untick “Non-stop only” to see connecting flights."
+          : "No flights found for these dates. Try different dates or nearby airports."}</div>`;
+
+    $("results").innerHTML = head + body;
+    $("results").querySelectorAll("[data-sort]").forEach(b => b.onclick = () => { sortBy = b.dataset.sort; renderResults(); });
+    $("nonstop").onchange = e => { nonstopOnly = e.target.checked; renderResults(); };
+    $("results").querySelectorAll(".more").forEach(b => b.onclick = () => {
+      const d = b.nextElementSibling, open = d.hidden;
+      d.hidden = !open; b.setAttribute("aria-expanded", open);
+      b.textContent = open ? "Hide details ▴" : "Flight details ▾";
+    });
+  }
+
+  renderRows();
+
   function showView() {
-    const id = location.hash.slice(1);
-    const cat = CATEGORIES.find(c => c.id === id);
-    document.querySelectorAll(".cat").forEach(a =>
-      a.classList.toggle("active", !!cat && a.dataset.cat === cat.id));
-    $("view-planner").hidden = !!cat;
-    $("view-category").hidden = !cat;
-    if (cat) {
-      // On narrow screens the tab row scrolls; bring the selected tab into view.
-      document.querySelector(`.cat[data-cat="${cat.id}"]`)
-        .scrollIntoView({ block: "nearest", inline: "center" });
+    const id = location.hash.slice(1) || "flights";
+    const cat = CATEGORIES.find(c => c.id === id) || CATEGORIES[0];
+    document.querySelectorAll(".cat").forEach(a => a.classList.toggle("active", a.dataset.cat === cat.id));
+    const soon = !!cat.soon;
+    $("view-flights").hidden = soon;
+    $("view-category").hidden = !soon;
+    // On narrow screens the tab row scrolls; bring the selected tab into view.
+    document.querySelector(`.cat[data-cat="${cat.id}"]`).scrollIntoView({ block: "nearest", inline: "center" });
+    if (soon) {
       $("soonIco").innerHTML = svg(cat.icon);
       $("soonTitle").textContent = cat.label;
       $("soonText").textContent = cat.soon;
-      document.title = `${cat.label} · AI Travel Planner`;
-    } else {
-      document.title = "AI Travel Planner";
     }
+    document.title = `${cat.label} · AI Travel Planner`;
+    closePop();
     window.scrollTo(0, 0);
   }
   window.addEventListener("hashchange", showView);
-  showView();
 
   // logout
   $("logout").onclick = async e => {
@@ -741,7 +808,7 @@
     window.location.href = "/login";
   };
 
-  renderModes();   // start in flight mode until a destination is entered
+  showView();
 </script>
 </body>
 </html>

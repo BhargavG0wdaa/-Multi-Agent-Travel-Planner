@@ -7,6 +7,8 @@ Routes:
   POST /api/login    -> sign in (signed session cookie)
   POST /api/logout   -> sign out
   GET  /             -> the app page (requires login)
+  GET  /api/places   -> airport/city autocomplete for the flight form
+  POST /api/flights/search -> priced flight offers from Duffel
   /static/*          -> static assets
 
 Run:  travel-planner-web      (or:  uvicorn travel_planner.api.app:app --reload)
@@ -15,15 +17,19 @@ Run:  travel-planner-web      (or:  uvicorn travel_planner.api.app:app --reload)
 from __future__ import annotations
 import os
 import secrets
+from datetime import date
 from pathlib import Path
+from typing import Literal
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator, model_validator
 from starlette.middleware.sessions import SessionMiddleware
 
 from travel_planner.api import auth
+from travel_planner.services import duffel
 
 HERE = Path(__file__).parent
 app = FastAPI(title="AI Travel Planner")
@@ -35,6 +41,13 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 
 auth.init_db()
+
+
+@app.exception_handler(RequestValidationError)
+def validation_error(request: Request, exc: RequestValidationError):
+    """Turn Pydantic's error list into one readable message for the UI."""
+    msg = exc.errors()[0].get("msg", "Invalid request.").removeprefix("Value error, ")
+    return JSONResponse(status_code=400, content={"error": msg})
 
 
 class Credentials(BaseModel):
@@ -90,6 +103,89 @@ def index(request: Request):
     if not _current_user(request):
         return RedirectResponse(url="/login", status_code=302)
     return HTMLResponse((HERE / "templates" / "index.html").read_text(encoding="utf-8"))
+
+
+# ---------- flights ----------
+
+NOT_CONFIGURED = ("Flight search isn't set up yet. Add a free Duffel test token as "
+                  "DUFFEL_ACCESS_TOKEN in .env (see .env.example), then restart the server.")
+
+
+class Leg(BaseModel):
+    origin: str
+    destination: str
+    date: date
+
+    @field_validator("origin", "destination")
+    @classmethod
+    def iata(cls, v: str) -> str:
+        v = v.strip().upper()
+        if len(v) != 3 or not v.isalpha():
+            raise ValueError("Pick an airport or city from the list.")
+        return v
+
+    @model_validator(mode="after")
+    def sane(self):
+        if self.origin == self.destination:
+            raise ValueError("From and To can't be the same place.")
+        if self.date < date.today():
+            raise ValueError("Travel dates can't be in the past.")
+        return self
+
+
+class FlightSearch(BaseModel):
+    legs: list[Leg] = Field(min_length=1, max_length=5)
+    adults: int = Field(1, ge=1, le=9)
+    children: int = Field(0, ge=0, le=8)
+    infants: int = Field(0, ge=0, le=9)
+    cabin: Literal["economy", "premium_economy", "business", "first"] = "economy"
+    fare: Literal["regular", "student"] = "regular"
+
+    @model_validator(mode="after")
+    def party(self):
+        if self.adults + self.children + self.infants > 9:
+            raise ValueError("At most 9 travellers per booking.")
+        if self.infants > self.adults:
+            raise ValueError("Each infant needs an adult to travel with.")
+        if any(b.date < a.date for a, b in zip(self.legs, self.legs[1:])):
+            raise ValueError("Each flight must be on or after the previous one.")
+        return self
+
+
+def _login_required():
+    return JSONResponse(status_code=401, content={"error": "Please log in first."})
+
+
+@app.get("/api/places")
+def places(request: Request, q: str):
+    if not _current_user(request):
+        return _login_required()
+    try:
+        return {"places": duffel.suggest_places(q)}
+    except duffel.NotConfigured:
+        return JSONResponse(status_code=503, content={"error": NOT_CONFIGURED})
+    except Exception:
+        return {"places": []}     # autocomplete is a nicety; never break the form
+
+
+@app.post("/api/flights/search")
+def search_flights(request: Request, req: FlightSearch):
+    if not _current_user(request):
+        return _login_required()
+    try:
+        offers = duffel.search_flights(
+            [leg.model_dump(mode="json") for leg in req.legs],
+            adults=req.adults, children=req.children, infants=req.infants,
+            cabin=req.cabin, student=req.fare == "student",
+        )
+    except duffel.NotConfigured:
+        return JSONResponse(status_code=503, content={"error": NOT_CONFIGURED})
+    except duffel.DuffelError as e:
+        return JSONResponse(status_code=502, content={"error": str(e)})
+    except Exception:
+        return JSONResponse(status_code=502, content={
+            "error": "The flight service didn't respond. Please try again."})
+    return {"offers": offers}
 
 
 def main() -> None:
