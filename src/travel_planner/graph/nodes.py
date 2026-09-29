@@ -19,7 +19,8 @@ from travel_planner.graph.state import (
     TransportPlan, StayOption, DayForecast, DayPlan,
 )
 from travel_planner.llm import get_llm
-from travel_planner.services import geo
+from travel_planner.services import geo, weather
+from travel_planner.services.geocode import geocode
 
 
 def _trip_days(spec: TripSpec) -> list[date]:
@@ -113,18 +114,35 @@ def lodging_node(state: TripState) -> dict:
     }
 
 
+# Conditions that make outdoor plans a bad idea.
+BAD_WEATHER = {"rain", "storm"}
+
+
 def weather_node(state: TripState) -> dict:
+    """Real forecast from Open-Meteo. Never fails the plan: if the forecast is
+    unavailable (network error, or trip beyond the 16-day horizon) those days
+    are marked "unknown"."""
     spec = state["spec"]
-    pattern = ["sunny", "sunny", "rain", "rain", "cloudy", "sunny", "rain"]
-    forecast = [
-        DayForecast(day=day, condition=pattern[i % len(pattern)], high_c=30 - i)
-        for i, day in enumerate(_trip_days(spec))
-    ]
-    rainy = sum(1 for d in forecast if d.condition == "rain")
-    print(f"[weather]  {len(forecast)} day forecast, {rainy} rainy")
+    days = _trip_days(spec)
+    daily: dict = {}
+    try:
+        loc = geocode(spec.destination, "in" if spec.currency == "INR" else None)
+        if loc:
+            daily = weather.daily_forecast(loc.lat, loc.lon, days[0], days[-1])
+    except Exception as e:
+        print(f"[weather]  forecast unavailable: {e}")
+
+    forecast = []
+    for day in days:
+        w = daily.get(day)
+        forecast.append(DayForecast(day, w.condition, w.high_c, w.rain_chance) if w
+                        else DayForecast(day, "unknown", None))
+    bad = sum(1 for d in forecast if d.condition in BAD_WEATHER)
+    unknown = sum(1 for d in forecast if d.condition == "unknown")
+    print(f"[weather]  {len(forecast)} day forecast, {bad} rainy/stormy, {unknown} unknown")
     return {
         "weather": forecast,
-        "notes": [f"weather: {rainy} rainy day(s) forecast"],
+        "notes": [f"weather: {bad} rainy/stormy day(s), {unknown} without forecast"],
     }
 
 
@@ -146,12 +164,15 @@ def itinerary_node(state: TripState) -> dict:
     spec = state["spec"]
     cap = state["allocation"].activities
     days = _trip_days(spec)
-    avoid = sorted(set(state.get("avoid_outdoor_days", [])))
+    # Bad-weather days are known up front now (weather runs first); the resolver
+    # can still add days if a previous attempt ignored them.
+    avoid = sorted(set(_rainy_days(state)) | set(state.get("avoid_outdoor_days", [])))
+    revising = state.get("revision_count", 0) > 0
 
     likes = ", ".join(spec.preferences) or "general sightseeing"
     indoor_rule = ""
     if avoid:
-        indoor_rule = ("It will RAIN on: " + ", ".join(str(d) for d in avoid) +
+        indoor_rule = ("Rain or storms are forecast on: " + ", ".join(str(d) for d in avoid) +
                        ". For those exact days pick INDOOR activities (outdoor=false).")
 
     llm = get_llm().with_structured_output(GeneratedItinerary)
@@ -177,7 +198,7 @@ def itinerary_node(state: TripState) -> dict:
         else:
             plan.append(DayPlan(day, "Free day", 0.0, False))
 
-    tag = "  (revision)" if avoid else ""
+    tag = "  (revision)" if revising else ""
     print(f"[itinerary] (LLM) {len(plan)} days, {spec.symbol}{spent:,.0f} of {spec.symbol}{cap:,.0f}{tag}")
     return {
         "itinerary": plan,
@@ -191,7 +212,7 @@ MAX_REVISIONS = 2
 
 
 def _rainy_days(state: TripState) -> list[date]:
-    return [w.day for w in state.get("weather", []) if w.condition == "rain"]
+    return [w.day for w in state.get("weather", []) if w.condition in BAD_WEATHER]
 
 
 def _rainy_outdoor_days(state: TripState) -> list[date]:
@@ -206,7 +227,7 @@ def resolver_node(state: TripState) -> dict:
         return {"conflicts": []}
 
     rev = state.get("revision_count", 0) + 1
-    conflicts = [f"{day}: outdoor activity on a rainy day" for day in conflict_days]
+    conflicts = [f"{day}: outdoor activity on a rainy/stormy day" for day in conflict_days]
     keep_indoor = _rainy_days(state)      # full constraint, avoids oscillation
     print(f"[resolver] {len(conflict_days)} conflict(s); revision {rev} "
           f"-> keep all {len(keep_indoor)} rainy day(s) indoor")

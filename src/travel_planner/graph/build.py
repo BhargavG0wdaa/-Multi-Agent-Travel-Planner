@@ -38,9 +38,13 @@ def build_graph():
     builder.add_edge(START, "intake")
     builder.add_edge("intake", "budget")
 
-    for w in ["transport", "lodging", "weather", "itinerary"]:
+    # Transport, lodging and weather run in parallel. The itinerary waits for
+    # ALL three (a list of sources = a join), so it plans with the forecast.
+    data_agents = ["transport", "lodging", "weather"]
+    for w in data_agents:
         builder.add_edge("budget", w)
-        builder.add_edge(w, "resolver")
+    builder.add_edge(data_agents, "itinerary")
+    builder.add_edge("itinerary", "resolver")
 
     builder.add_conditional_edges("resolver", route_after_resolver, ["itinerary", "assemble"])
     builder.add_edge("assemble", END)

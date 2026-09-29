@@ -67,8 +67,9 @@ class StayOption:
 @dataclass
 class DayForecast:
     day: date
-    condition: str
-    high_c: int
+    condition: str                 # sunny | cloudy | rain | storm | snow | unknown
+    high_c: int | None
+    rain_chance: int | None = None # max % chance of precipitation that day
 
 
 @dataclass

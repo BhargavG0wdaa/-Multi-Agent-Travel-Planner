@@ -346,16 +346,16 @@
   }
 
   // ---- live agent progress (driven by Server-Sent Events) ----
-  // Groups mirror the graph: intake -> budget -> 4 agents in parallel -> resolver -> assemble.
+  // Groups mirror the graph: intake -> budget -> 3 agents in parallel -> itinerary -> resolver -> assemble.
   const GROUPS = [
     { nodes: [{ node: "intake",    ico: "📋", label: "Reading your trip details" }] },
     { nodes: [{ node: "budget",    ico: "💰", label: "Splitting the budget" }] },
-    { label: "⚡ 4 agents running in parallel", nodes: [
+    { label: "⚡ 3 agents running in parallel", nodes: [
         { node: "transport", ico: "🚆", label: "Planning transport" },
         { node: "lodging",   ico: "🏨", label: "Finding a place to stay" },
         { node: "weather",   ico: "🌦️", label: "Checking the forecast" },
-        { node: "itinerary", ico: "🗺️", label: "Designing your itinerary" },
     ] },
+    { nodes: [{ node: "itinerary", ico: "🗺️", label: "Designing your itinerary" }] },
     { nodes: [{ node: "resolver",  ico: "🔧", label: "Reconciling weather & activities" }] },
     { nodes: [{ node: "assemble",  ico: "✅", label: "Assembling your final plan" }] },
   ];
@@ -387,7 +387,7 @@
     return row;
   }
 
-  // First not-fully-done group is "active"; the 4 parallel agents light up together.
+  // First not-fully-done group is "active"; the 3 parallel agents light up together.
   function refreshActive() {
     let claimed = false;
     for (const g of GROUPS) {
@@ -481,7 +481,16 @@
     ["food", "Food", "var(--food)"],
     ["activities", "Activities", "var(--activities)"],
   ];
-  const WX = { sunny: "☀️", rain: "🌧️", cloudy: "☁️" };
+  const WX = { sunny: "☀️", rain: "🌧️", cloudy: "☁️", storm: "⛈️", snow: "❄️", unknown: "❔" };
+
+  // Tooltip like "rain · 31°C · 85% chance of rain".
+  function wxTitle(day) {
+    if (!day.condition || day.condition === "unknown") return "No forecast yet (more than 16 days out)";
+    const parts = [day.condition];
+    if (day.high_c != null) parts.push(`${day.high_c}°C`);
+    if (day.rain_chance != null) parts.push(`${day.rain_chance}% chance of rain`);
+    return parts.join(" · ");
+  }
 
   function render(d) {
     const s = d.spec, sym = s.symbol;
@@ -524,7 +533,7 @@
           <span class="ph">${free ? "🗓️" : "📍"}</span><img alt="" loading="lazy" />
         </div>
         <div class="date"><div class="d">${day.label}</div><div class="wd">${day.weekday}</div></div>
-        <div class="wx" title="${day.condition || ""}">${WX[day.condition] || "•"}</div>
+        <div class="wx" title="${wxTitle(day)}">${WX[day.condition] || "•"}</div>
         <div class="act"><div class="actname">${day.activity}</div>${place}</div>${tag}
         <div class="cost">${day.cost ? money(day.cost, sym) : "free"}</div></div>`;
     }).join("");

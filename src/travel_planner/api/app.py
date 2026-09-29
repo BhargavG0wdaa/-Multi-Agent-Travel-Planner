@@ -18,8 +18,6 @@ from __future__ import annotations
 import json
 import os
 import secrets
-import urllib.parse
-import urllib.request
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -31,6 +29,8 @@ from starlette.middleware.sessions import SessionMiddleware
 from travel_planner.api import auth
 from travel_planner.graph import build_graph
 from travel_planner.services import geo
+from travel_planner.services.geocode import geocode
+from travel_planner.services.http import get_json
 
 HERE = Path(__file__).parent
 app = FastAPI(title="Multi-Agent Travel Planner")
@@ -111,23 +111,10 @@ def geo_check(place: str):
 # ---------- road route (drives the map for car/bus/bike trips in India) ----------
 # Uses free, key-less OSM services: Nominatim to geocode names, OSRM for the route.
 
-_ROUTE_UA = "multi-agent-travel-planner/1.0 (demo)"
-
-
-def _http_json(url: str):
-    req = urllib.request.Request(url, headers={"User-Agent": _ROUTE_UA})
-    with urllib.request.urlopen(req, timeout=15) as r:
-        return json.load(r)
-
-
 def _geocode_india(place: str):
     """Return (lat, lon) for an Indian place name, or None if not found."""
-    q = urllib.parse.urlencode(
-        {"q": place, "format": "json", "limit": 1, "countrycodes": "in"})
-    data = _http_json("https://nominatim.openstreetmap.org/search?" + q)
-    if not data:
-        return None
-    return float(data[0]["lat"]), float(data[0]["lon"])
+    loc = geocode(place, "in")
+    return (loc.lat, loc.lon) if loc else None
 
 
 @app.get("/api/route")
@@ -144,7 +131,7 @@ def route(request: Request, origin: str, destination: str):
                                 content={"error": f"Couldn't find “{missing}” on the map."})
         osrm = (f"https://router.project-osrm.org/route/v1/driving/"
                 f"{a[1]},{a[0]};{b[1]},{b[0]}?overview=simplified&geometries=geojson")
-        data = _http_json(osrm)
+        data = get_json(osrm, timeout=15)
         routes = data.get("routes") or []
         if not routes:
             return JSONResponse(status_code=404,
@@ -176,12 +163,11 @@ def _place_image(query: str) -> dict:
         return {"image": None, "title": None}
     if query in _image_cache:
         return _image_cache[query]
-    params = urllib.parse.urlencode({
+    data = get_json("https://en.wikipedia.org/w/api.php", {
         "action": "query", "format": "json", "prop": "pageimages",
         "piprop": "thumbnail", "pithumbsize": "800",
         "generator": "search", "gsrsearch": query, "gsrlimit": "1", "redirects": "1",
     })
-    data = _http_json("https://en.wikipedia.org/w/api.php?" + params)
     pages = (data.get("query") or {}).get("pages") or {}
     result = {"image": None, "title": None}
     for page in pages.values():
@@ -296,6 +282,7 @@ def _serialize(state) -> dict:
             "label": d.day.strftime("%b %-d"),
             "condition": w.condition if w else None,
             "high_c": w.high_c if w else None,
+            "rain_chance": w.rain_chance if w else None,
             "activity": d.activity,
             "place": d.place,
             "cost": d.cost,

@@ -23,3 +23,7 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+
+# Unused photos left over from the old landing page (only hero_van.jpg is used)
+src/travel_planner/api/static/landing/*
+!src/travel_planner/api/static/landing/hero_van.jpg
