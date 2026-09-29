@@ -1,0 +1,41 @@
+<!-- flights.html — the Flights view, filled into the page shell (api/templates/index.html). -->
+<main class="wrap wide" id="view-flights">
+  <form class="card fx" id="fx" autocomplete="off" novalidate>
+    <div class="fx-top">
+      <div class="trip" role="radiogroup" aria-label="Trip type">
+        <label><input type="radio" name="trip" value="oneway" checked /> One Way</label>
+        <label><input type="radio" name="trip" value="round" /> Round Trip</label>
+        <label><input type="radio" name="trip" value="multi" /> Multi City</label>
+      </div>
+      <div class="fx-tag">Book international and domestic flights</div>
+    </div>
+
+    <div id="rows"></div>
+
+    <div class="fares" role="radiogroup" aria-label="Special fare">
+      <div class="ttl">Select a<br />special fare</div>
+      <label class="fare"><input type="radio" name="fare" value="regular" checked />
+        <span class="t">Regular</span><span class="d">Regular fares</span></label>
+      <label class="fare"><input type="radio" name="fare" value="student" />
+        <span class="t">Student</span><span class="d">Where airlines offer them</span></label>
+    </div>
+
+    <button class="search-btn" id="searchBtn" type="submit">SEARCH</button>
+  </form>
+
+  <section id="results" aria-live="polite"></section>
+
+  <section class="card pd" aria-labelledby="pdTitle">
+    <div class="pd-head">
+      <div><h2 id="pdTitle">Popular destinations</h2><p>Pick one to fly there</p></div>
+      <div class="seg" role="group" aria-label="Destination type">
+        <button type="button" data-region="domestic" class="on" aria-pressed="true">Domestic</button>
+        <button type="button" data-region="international" aria-pressed="false">International</button>
+      </div>
+    </div>
+    <div class="pd-grid" id="pdGrid"></div>
+    <details class="credits"><summary>Photo credits</summary><ul id="pdCredits"></ul></details>
+  </section>
+  <footer>Flight data from Duffel · test mode, no real tickets are booked ·
+    INR prices are estimates at daily exchange rates</footer>
+</main>

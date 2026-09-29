@@ -75,3 +75,8 @@ def verify_user(email: str, password: str) -> bool:
         return False
     candidate = _hash_password(password, bytes.fromhex(row["pw_salt"]))
     return hmac.compare_digest(candidate, row["pw_hash"])   # constant-time (lives in hmac)
+
+
+def current_user(request) -> str | None:
+    """Email of the signed-in user (from the session cookie), or None."""
+    return request.session.get("user")
