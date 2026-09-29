@@ -183,9 +183,29 @@
     background: var(--surface); cursor: pointer; font-size: 18px; line-height: 1; color: var(--accent-deep); }
   .step button:disabled { color: var(--muted); opacity: .5; cursor: not-allowed; }
   .step output { min-width: 16px; text-align: center; font-weight: 700; }
-  .opt { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 10px; cursor: pointer; }
-  .opt:hover { background: var(--field); }
-  .opt input { accent-color: var(--accent-deep); }
+  /* cabin class picker: one card per class, perks + seat illustration */
+  .pop.cabin { width: 470px; padding: 16px; }
+  .pop-ttl { font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+    color: #33414f; margin: 2px 2px 12px; }
+  .cab { display: grid; grid-template-columns: 1fr 76px; align-items: center; gap: 10px;
+    padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 14px; cursor: pointer;
+    transition: border-color .15s, background .15s; }
+  .cab + .cab { margin-top: 10px; }
+  .cab:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+  .cab:has(input:checked) { border-color: #2f7de1;
+    background: linear-gradient(100deg, #fff 35%, #e4efff 100%); }
+  .cab:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .cab input { position: absolute; opacity: 0; pointer-events: none; }
+  .cab .hd { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 800; color: var(--ink); }
+  .cab .rd { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #8a97a3; flex: none;
+    display: grid; place-items: center; }
+  .cab:has(input:checked) .rd { border-color: #2f7de1; }
+  .cab:has(input:checked) .rd::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: #2f7de1; }
+  .perks { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0 0 30px; }
+  .perk { display: inline-flex; align-items: center; gap: 5px; font-size: 13.5px; color: #1f3f73; }
+  .perk svg { width: 16px; height: 16px; flex: none; color: #2f5fa8; }
+  .cab .seat { width: 76px; height: 64px; }
+  .cab-note { font-size: 12px; color: var(--muted); margin: 10px 2px 0; }
   .pop .done { width: 100%; margin-top: 8px; }
 
   .fares { display: flex; align-items: center; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
@@ -303,7 +323,11 @@
     .fx { padding: 14px 14px 44px; }
     .val { font-size: 22px; } .val small { font-size: 14px; }
     .cell { padding: 12px 12px 14px; }
-    .pop { min-width: 0; width: calc(100vw - 40px); }
+    /* phones: pickers open as a panel pinned to the screen edges, not the cell */
+    .pop, .pop.cabin, .pop.right { position: fixed; left: 16px; right: 16px; top: 128px; width: auto;
+      min-width: 0; max-height: calc(100vh - 144px); overflow-y: auto; }   /* below the 2-row phone header */
+    .cab { grid-template-columns: 1fr 60px; } .cab .seat { width: 60px; height: 52px; }
+    .perks { margin-left: 0; }
     .offer { grid-template-columns: 1fr; }
     .price { text-align: left; display: flex; align-items: baseline; gap: 8px; }
     .search-btn { padding: 13px 54px; font-size: 19px; }
@@ -638,9 +662,68 @@
     sync();
   }
 
+  // Small line icons for the cabin perks.
+  const PERK = {
+    legroom: '<path d="M7 4v9a3 3 0 0 0 3 3h6"/><path d="M16 16v4M5 20h14"/>',
+    baggage: '<rect x="6" y="7" width="12" height="13" rx="2"/><path d="M9 7V4h6v3M10 11v5M14 11v5"/>',
+    meals:   '<path d="M4 12h16a8 8 0 0 1-16 0Z"/><path d="M9 4c0 1.5 1 1.5 1 3M13 4c0 1.5 1 1.5 1 3"/>',
+    lounge:  '<path d="M5 11V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3"/><path d="M3 18v-5a2 2 0 0 1 4 0v1h10v-1a2 2 0 0 1 4 0v5Z"/><path d="M5 18v2M19 18v2"/>',
+    comfort: '<path d="M6 5l3 9h8"/><path d="M9 14l-1 5M17 14v5M4 19h16"/>',
+    dining:  '<path d="M4 17a8 8 0 0 1 16 0Z"/><path d="M2 20h20M12 6v3"/>',
+    suite:   '<rect x="6" y="3" width="12" height="18" rx="1"/><circle cx="15" cy="12" r="1"/>',
+    wine:    '<path d="M8 3h8l-1 6a3 3 0 0 1-6 0Z"/><path d="M12 12v8M9 21h6"/>',
+    service: '<circle cx="12" cy="7" r="3.5"/><path d="M5 21a7 7 0 0 1 14 0"/><path d="M10 14l2 2 2-2"/>',
+  };
+  const perkSvg = n => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PERK[n]}</svg>`;
+
+  // Flat seat illustrations, one per cabin (drawn for this app).
+  const SEAT_BLUE = "#3f7fe0", SEAT_DARK = "#2a5fb8", SEAT_LIGHT = "#dfe9f7";
+  const SEATS = {
+    economy: `<rect x="25" y="6" width="22" height="36" rx="6" fill="${SEAT_BLUE}"/>
+      <rect x="28" y="9" width="16" height="7" rx="2" fill="#fff"/>
+      <rect x="18" y="38" width="36" height="10" rx="4" fill="${SEAT_DARK}"/>
+      <rect x="15" y="30" width="7" height="16" rx="3" fill="${SEAT_LIGHT}"/>
+      <path d="M26 48v8M46 48v8M22 56h28" stroke="#9aa9bb" stroke-width="3" stroke-linecap="round"/>`,
+    premium_economy: `<rect x="23" y="4" width="26" height="38" rx="7" fill="${SEAT_BLUE}"/>
+      <rect x="27" y="7" width="18" height="8" rx="2" fill="#fff"/>
+      <rect x="14" y="37" width="44" height="11" rx="4" fill="${SEAT_DARK}"/>
+      <rect x="10" y="28" width="9" height="18" rx="3" fill="${SEAT_LIGHT}"/>
+      <rect x="53" y="28" width="9" height="18" rx="3" fill="${SEAT_LIGHT}"/>
+      <path d="M58 46l8 8" stroke="${SEAT_BLUE}" stroke-width="5" stroke-linecap="round"/>
+      <path d="M24 48v8M48 48v8M20 56h32" stroke="#9aa9bb" stroke-width="3" stroke-linecap="round"/>`,
+    business: `<rect x="4" y="18" width="16" height="38" rx="4" fill="${SEAT_LIGHT}"/>
+      <rect x="7" y="22" width="10" height="6" rx="1.5" fill="#fff"/>
+      <path d="M24 8l12-3 7 34-12 3Z" fill="${SEAT_BLUE}"/>
+      <path d="M26 9l8-2 1.6 7-8 2Z" fill="#fff"/>
+      <rect x="28" y="38" width="36" height="10" rx="4" fill="${SEAT_DARK}"/>
+      <path d="M62 44l6 8" stroke="${SEAT_BLUE}" stroke-width="5" stroke-linecap="round"/>
+      <path d="M34 48v8M56 48v8" stroke="#9aa9bb" stroke-width="3" stroke-linecap="round"/>`,
+    first: `<path d="M4 14h14v42H4Z" fill="${SEAT_LIGHT}"/>
+      <path d="M4 14q34-10 68 0v6H4Z" fill="${SEAT_LIGHT}"/>
+      <rect x="7" y="19" width="8" height="5" rx="1.5" fill="#fff"/>
+      <rect x="16" y="36" width="54" height="11" rx="5" fill="${SEAT_BLUE}"/>
+      <rect x="19" y="30" width="15" height="8" rx="3" fill="#fff"/>
+      <rect x="16" y="45" width="54" height="5" rx="2.5" fill="${SEAT_DARK}"/>
+      <path d="M22 50v6M64 50v6" stroke="#9aa9bb" stroke-width="3" stroke-linecap="round"/>`,
+  };
+  const seatSvg = k => `<svg class="seat" viewBox="0 0 76 64" aria-hidden="true">${SEATS[k]}</svg>`;
+
+  const CABIN_CARDS = [
+    { k: "economy",         t: "Economy",         perks: [] },
+    { k: "premium_economy", t: "Premium Economy", perks: [["legroom", "Extra Legroom"], ["baggage", "Extra Baggage"], ["meals", "Premium Meals"]] },
+    { k: "business",        t: "Business Class",  perks: [["lounge", "Luxury Lounges"], ["comfort", "Cabin Comfort"], ["dining", "Premium Dining"]] },
+    { k: "first",           t: "First Class",     perks: [["suite", "Private Suites"], ["wine", "Fine Dining"], ["service", "Highly Personalised Service"]] },
+  ];
+
   function cabinPop(cell) {
-    const el = openPop(cell, Object.entries(CABIN).map(([k, t]) =>
-      `<label class="opt"><input type="radio" name="cabinopt" value="${k}" ${k === S.cabin ? "checked" : ""} /> ${t}</label>`).join(""), true);
+    const el = openPop(cell, `<div class="pop-ttl">Choose cabin class</div>` + CABIN_CARDS.map(c => `
+      <label class="cab"><input type="radio" name="cabinopt" value="${c.k}" ${c.k === S.cabin ? "checked" : ""} />
+        <div><div class="hd"><span class="rd"></span>${c.t}</div>
+          ${c.perks.length ? `<div class="perks">${c.perks.map(([i, t]) => `<span class="perk">${perkSvg(i)}${t}</span>`).join("")}</div>` : ""}</div>
+        ${seatSvg(c.k)}</label>`).join("")
+      + `<div class="cab-note">Perks vary by airline and route.</div>`, true);
+    el.classList.add("cabin");
     el.onchange = e => { S.cabin = e.target.value; $("cabinVal").textContent = CABIN[S.cabin]; closePop(); };
   }
 
