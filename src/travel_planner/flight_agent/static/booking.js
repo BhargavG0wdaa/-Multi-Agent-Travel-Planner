@@ -2,7 +2,8 @@
 // Loaded after flights.js; uses its helpers (sliceHtml, detailsHtml, money, hm, dur, ...).
 
 const B = {};                                  // booking state, reset by startBooking()
-const STEPS = ["Flight", "Seats", "Travellers", "Review & pay"];
+// The Seats step only appears when the airline shares a seat map for this flight.
+const STEP_TITLES = { flight: "Flight", seats: "Seats", travellers: "Travellers", review: "Review & pay" };
 const TITLES = [["mr", "Mr"], ["ms", "Ms"], ["mrs", "Mrs"], ["miss", "Miss"], ["dr", "Dr"]];
 const LATIN = /^[A-Za-z][A-Za-z '\-]{0,39}$/;
 
@@ -28,6 +29,7 @@ async function startBooking(offerId) {
   if (o.error) return bookingError(o);
   B.offer = o.offer; B.rate = o.display.rate; B.contact.email = o.email || "";
   B.maps = s.error ? [] : s.seat_maps;                    // no seat map is fine: seats at check-in
+  B.flow = B.maps.length ? ["flight", "seats", "travellers", "review"] : ["flight", "travellers", "review"];
   B.pax = labelTravellers(B.offer.passengers);
   B.pax.forEach(p => B.travellers[p.id] = { title: "", gender: "", given_name: "", family_name: "", born_on: "" });
   renderStep();
@@ -79,15 +81,16 @@ const seatTotal = () => Object.values(B.seats).reduce((t, s) => t + s.amount, 0)
 
 // ---- page frame: step bar + current step ----
 function renderStep() {
-  const bar = `<ol class="bk-steps">${STEPS.map((t, i) => `<li class="${i < B.step ? "done" : i === B.step ? "on" : ""}">
-      <span class="n">${i < B.step ? "✓" : i + 1}</span>${t}</li>`).join("")}</ol>`;
-  const body = [stepFlight, stepSeats, stepTravellers, stepReview][B.step]();
+  const bar = `<ol class="bk-steps">${B.flow.map((k, i) => `<li class="${i < B.step ? "done" : i === B.step ? "on" : ""}">
+      <span class="n">${i < B.step ? "✓" : i + 1}</span>${STEP_TITLES[k]}</li>`).join("")}</ol>`;
+  const current = B.flow[B.step];
+  const body = { flight: stepFlight, seats: stepSeats, travellers: stepTravellers, review: stepReview }[current]();
   $("booking").innerHTML = `<div class="bk-top"><button type="button" class="bk-link" data-go="results">← Back to results</button>
     ${B.offer.expires_at ? `<span class="bk-hold">Fare held until ${new Date(B.offer.expires_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>` : ""}</div>
     ${bar}${body}`;
   wireNav();
-  if (B.step === 1) wireSeats();
-  if (B.step === 2) wireTravellers();
+  if (current === "seats") wireSeats();
+  if (current === "travellers") wireTravellers();
   window.scrollTo(0, 0);
 }
 
@@ -97,7 +100,7 @@ function wireNav() {
     if (go === "results") return showBooking(false);
     if (go === "research") { showBooking(false); return $("fx").requestSubmit(); }
     if (go === "home") return goHome();
-    if (go === "next") { if (B.step === 2 && !travellersValid()) return; B.step++; return renderStep(); }
+    if (go === "next") { if (B.flow[B.step] === "travellers" && !travellersValid()) return; B.step++; return renderStep(); }
     if (go === "back") { B.step--; return renderStep(); }
     if (go === "book") return book();
   });
@@ -132,7 +135,7 @@ function stepFlight() {
       <div class="line total"><span>Total · ${n} traveller${n > 1 ? "s" : ""}</span><span>${exact(o.price, o.currency)}</span></div>
       ${B.rate && o.currency !== "INR" ? `<div class="bk-inr big">≈ ${inr(o.price)}</div>` : ""}
       <p class="muted small">Price just re-checked with the airline.</p>
-      <button type="button" class="bk-btn full" data-go="next">Continue to seats</button>
+      <button type="button" class="bk-btn full" data-go="next">${B.flow[1] === "seats" ? "Continue to seats" : "Continue to traveller details"}</button>
     </aside></div>`;
 }
 
@@ -142,12 +145,6 @@ function seatable() { return B.pax.filter(p => p.kind !== "infant"); }
 
 function stepSeats() {
   const maps = B.maps || [];
-  if (!maps.length) {
-    return `<div class="card bk-main"><h2>Choose seats</h2>
-      <p class="kv">This airline doesn't offer seat selection online. Seats will be assigned at check-in.</p>
-      <div class="bk-actions"><button type="button" class="bk-btn ghost" data-go="back">Back</button>
-      <button type="button" class="bk-btn" data-go="next">Continue to traveller details</button></div></div>`;
-  }
   const segs = segments().filter(g => maps.some(m => m.segment_id === g.id));
   if (!B.activeSeg || !segs.some(g => g.id === B.activeSeg)) B.activeSeg = segs[0].id;
   if (!B.activePax) B.activePax = seatable()[0]?.id;
