@@ -110,7 +110,8 @@
   button { font: inherit; color: inherit; }
 
   /* ================= flight search card ================= */
-  .fx { position: relative; padding: 18px 22px 46px; margin-bottom: 44px; }
+  .fx { position: relative; padding: 18px 22px 46px; margin-bottom: 44px;
+    scroll-margin-top: 90px; }   /* clear the sticky header when scrolled to */
   .fx-top { display: flex; align-items: center; justify-content: space-between; gap: 12px;
     flex-wrap: wrap; margin-bottom: 14px; }
   .trip { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -259,6 +260,35 @@
   .state .err { color: #b3261e; font-weight: 600; }
   footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 40px; }
 
+  /* ================= popular destinations ================= */
+  .pd { padding: 22px 22px 16px; margin-top: 28px; }
+  .pd-head { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    flex-wrap: wrap; margin-bottom: 16px; }
+  .pd-head h2 { margin: 0; font-size: 22px; letter-spacing: -.01em; }
+  .pd-head p { margin: 2px 0 0; color: var(--ink-2); font-size: 14px; }
+  .pd-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .pd-card { position: relative; display: block; padding: 0; border: 0; cursor: pointer; text-align: left;
+    aspect-ratio: 4 / 3; border-radius: 14px; overflow: hidden; background: var(--field);
+    box-shadow: 0 1px 2px rgba(12,26,43,.06); transition: transform .18s, box-shadow .18s; }
+  .pd-card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(12,26,43,.16); }
+  .pd-card:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .pd-card img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .4s; }
+  .pd-card:hover img { transform: scale(1.05); }
+  .pd-card .shade { position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(6,18,33,.86) 100%); }
+  .pd-card .txt { position: absolute; left: 14px; right: 14px; bottom: 12px; color: #fff; }
+  .pd-card .nm { font-size: 18px; font-weight: 800; letter-spacing: -.01em; line-height: 1.15; }
+  .pd-card .tg { font-size: 12.5px; opacity: .88; }
+  .pd-card .cd { position: absolute; top: 10px; right: 10px; font-size: 11px; font-weight: 800;
+    letter-spacing: .04em; color: var(--navy); background: rgba(255,255,255,.9); padding: 3px 8px; border-radius: 999px; }
+  .credits { margin-top: 14px; font-size: 12px; color: var(--muted); }
+  .credits summary { cursor: pointer; width: max-content; }
+  .credits ul { margin: 8px 0 0; padding-left: 18px; columns: 2; column-gap: 28px; }
+  .credits a { color: var(--ink-2); }
+  @media (max-width: 980px) { .pd-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 720px) { .pd-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .pd { padding: 16px 14px 12px; } .pd-card .nm { font-size: 16px; } .credits ul { columns: 1; } }
+
   @media (max-width: 980px) {
     .fx-row.main { grid-template-columns: 1fr 1fr; }
     .fx-row.main .cell:nth-child(n+3) { border-top: 1px solid var(--border); }
@@ -320,6 +350,18 @@
   </form>
 
   <section id="results" aria-live="polite"></section>
+
+  <section class="card pd" aria-labelledby="pdTitle">
+    <div class="pd-head">
+      <div><h2 id="pdTitle">Popular destinations</h2><p>Pick one to fly there</p></div>
+      <div class="seg" role="group" aria-label="Destination type">
+        <button type="button" data-region="domestic" class="on" aria-pressed="true">Domestic</button>
+        <button type="button" data-region="international" aria-pressed="false">International</button>
+      </div>
+    </div>
+    <div class="pd-grid" id="pdGrid"></div>
+    <details class="credits"><summary>Photo credits</summary><ul id="pdCredits"></ul></details>
+  </section>
   <footer>Flight data from Duffel · test mode, no real tickets are booked ·
     INR prices are estimates at daily exchange rates</footer>
 </main>
@@ -644,6 +686,66 @@
     if (S.ret && S.ret < S.legs[0].date) S.ret = S.legs[0].date;
     renderRows();
   });
+
+  // ---- popular destinations: click a card to fly there ----
+  // Photos are from Wikimedia Commons (downloaded once, served locally); each
+  // licence requires the credit shown under "Photo credits".
+  const CC = "https://commons.wikimedia.org/w/index.php?curid=";
+  const DESTINATIONS = {
+    domestic: [
+      { img: "goa",      city: "Goa",        tag: "Beaches & nightlife",    code: "GOI", name: "Dabolim Airport",                          by: "iMahesh", lic: "CC BY-SA 4.0", src: 151673985 },
+      { img: "jaipur",   city: "Jaipur",     tag: "The Pink City",          code: "JAI", name: "Jaipur International Airport",             by: "Chainwit.", lic: "CC BY-SA 4.0", src: 120750436 },
+      { img: "srinagar", city: "Srinagar",   tag: "Dal Lake & the Himalayas", code: "SXR", name: "Sheikh ul-Alam International Airport",  by: "Suhail Skindar Sofi", lic: "CC BY-SA 4.0", src: 78425112 },
+      { img: "kochi",    city: "Kochi",      tag: "Kerala backwaters",      code: "COK", name: "Cochin International Airport",             by: "Augustus Binu", lic: "CC BY-SA 3.0", src: 28310294 },
+      { img: "leh",      city: "Leh",        tag: "Monasteries of Ladakh",  code: "IXL", name: "Kushok Bakula Rimpochee Airport",          by: "Aksveer", lic: "CC BY-SA 4.0", src: 76046385 },
+      { img: "andaman",  city: "Port Blair", tag: "Andaman Islands",        code: "IXZ", name: "Veer Savarkar International Airport",      by: "Harvinder Chandigarh", lic: "CC BY-SA 4.0", src: 47825254 },
+      { img: "udaipur",  city: "Udaipur",    tag: "City of lakes",          code: "UDR", name: "Maharana Pratap Airport",                  by: "Flicka", lic: "CC BY-SA 3.0", src: 1133566 },
+      { img: "varanasi", city: "Varanasi",   tag: "Ghats of the Ganges",    code: "VNS", name: "Lal Bahadur Shastri International Airport", by: "Ken Wieland", lic: "CC BY-SA 2.0", src: 7711423 },
+    ],
+    international: [
+      { img: "dubai",     city: "Dubai",     tag: "Skyline & desert",       code: "DXB", name: "Dubai International Airport",           by: "Imran Shahabuddin", lic: "CC BY 2.0", src: 77350165 },
+      { img: "singapore", city: "Singapore", tag: "The garden city",        code: "SIN", name: "Changi Airport",                        by: "Supanut Arunoprayote", lic: "CC BY 4.0", src: 86347540 },
+      { img: "bangkok",   city: "Bangkok",   tag: "Temples & street food",  code: "BKK", name: "Suvarnabhumi Airport",                  by: "Mastertongapollo", lic: "CC BY-SA 4.0", src: 156207072 },
+      { img: "bali",      city: "Bali",      tag: "Temples & rice terraces", code: "DPS", name: "Ngurah Rai International Airport",     by: "LukeTriton", lic: "CC BY-SA 4.0", src: 118993252 },
+      { img: "maldives",  city: "Maldives",  tag: "Island resorts",         code: "MLE", name: "Velana International Airport",          by: "Priyaflorenceshah", lic: "CC BY-SA 4.0", src: 64964873 },
+      { img: "paris",     city: "Paris",     tag: "Art, food & the Eiffel Tower", code: "CDG", name: "Charles de Gaulle Airport",       by: "Benh LIEU SONG", lic: "Public domain", src: 48220385 },
+      { img: "london",    city: "London",    tag: "Royal history & the Thames", code: "LHR", name: "Heathrow Airport",                  by: "Fuzzypiggy", lic: "CC BY-SA 3.0", src: 35601800 },
+      { img: "sydney",    city: "Sydney",    tag: "Harbour & beaches",      code: "SYD", name: "Sydney Kingsford Smith Airport",        by: "Bernard Spragg", lic: "CC0", src: 70521604 },
+    ],
+  };
+  let region = "domestic";
+
+  function renderDestinations() {
+    const list = DESTINATIONS[region];
+    $("pdGrid").innerHTML = list.map((d, k) => `
+      <button type="button" class="pd-card" data-k="${k}" aria-label="Fly to ${d.city}">
+        <img src="/static/destinations/${d.img}.jpg" alt="" loading="lazy" />
+        <span class="shade"></span><span class="cd">${d.code}</span>
+        <span class="txt"><div class="nm">${d.city}</div><div class="tg">${d.tag}</div></span>
+      </button>`).join("");
+    document.querySelectorAll("[data-region]").forEach(b => {
+      b.classList.toggle("on", b.dataset.region === region);
+      b.setAttribute("aria-pressed", b.dataset.region === region);
+    });
+  }
+  // Credits for all 16 photos, whichever tab is showing.
+  $("pdCredits").innerHTML = [...DESTINATIONS.domestic, ...DESTINATIONS.international].map(d =>
+    `<li>${d.city}: <a href="${CC}${d.src}" target="_blank" rel="noopener">photo</a> by ${esc(d.by)}, ${d.lic}</li>`).join("");
+
+  document.querySelectorAll("[data-region]").forEach(b => b.onclick = () => { region = b.dataset.region; renderDestinations(); });
+  $("pdGrid").onclick = e => {
+    const card = e.target.closest(".pd-card");
+    if (!card) return;
+    const d = DESTINATIONS[region][+card.dataset.k];
+    const leg = S.legs[0];
+    leg.to = { code: d.code, city: d.city, name: d.name, type: "airport" };
+    if (leg.from?.code === d.code) leg.from = null;          // can't fly Goa -> Goa
+    closePop(); renderRows();
+    $("fx").scrollIntoView({ behavior: "smooth", block: "start" });
+    // Nothing to fly from yet? Open the From picker so the search is one step away.
+    if (!leg.from) setTimeout(() => document.querySelector("[data-act=place][data-leg='0'][data-end=from]")?.click(), 350);
+  };
+  renderDestinations();
 
   // ---- search + results ----
   let offers = [], sortBy = "price", nonstopOnly = false, lastQuery = null;
