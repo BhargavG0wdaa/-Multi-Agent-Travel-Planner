@@ -5,7 +5,11 @@
 # Secrets — the #1 rule: never commit real API keys
 .env
 
-# Python virtual environment (huge, machine-specific — rebuild with requirements.txt)
+# Local database (user accounts) — never commit user data
+*.db
+data/
+
+# Python virtual environment (huge, machine-specific — rebuild with `pip install -e .`)
 .venv/
 
 # Python bytecode cache
@@ -14,3 +18,12 @@ __pycache__/
 
 # OS / editor junk
 .DS_Store
+
+# Build / install artifacts
+*.egg-info/
+dist/
+build/
+
+# Unused photos left over from the old landing page (only hero_van.jpg is used)
+src/travel_planner/api/static/landing/*
+!src/travel_planner/api/static/landing/hero_van.jpg

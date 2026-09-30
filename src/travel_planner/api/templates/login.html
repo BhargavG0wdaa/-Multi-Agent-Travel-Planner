@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sign in · AI Travel Planner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0c1a2b; --ink2:#5b6b7a; --muted:#8a97a3;
+    --blue:#12b5e8; --blue-deep:#0e9ecb; --navy:#0a2540;
+    --line:#e9edf1; --field:#f5f7f9; --r:18px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:"Inter",system-ui,-apple-system,sans-serif;color:var(--ink);
+    background:linear-gradient(160deg,#e7f5fb 0%,#f3fbfd 55%,#fff 100%);
+    display:flex;align-items:center;justify-content:center;padding:24px;-webkit-font-smoothing:antialiased}
+
+  .card{display:grid;grid-template-columns:1.05fr 1fr;width:100%;max-width:940px;background:#fff;
+    border-radius:var(--r);overflow:hidden;box-shadow:0 30px 70px rgba(10,37,64,.22)}
+  @media(max-width:760px){.card{grid-template-columns:1fr;max-width:440px}}
+
+  /* ---- hero panel (left) ---- */
+  .hero{position:relative;color:#fff;padding:42px 36px;min-height:540px;
+    display:flex;flex-direction:column;justify-content:space-between;
+    background-image:url('/static/landing/hero_van.jpg');background-size:cover;background-position:center}
+  .hero::after{content:"";position:absolute;inset:0;
+    background:linear-gradient(180deg,rgba(10,37,64,.30),rgba(10,37,64,.78))}
+  .hero>*{position:relative;z-index:2}
+  @media(max-width:760px){.hero{min-height:210px;padding:30px}}
+  .brand{font-weight:800;font-size:25px;letter-spacing:-.02em}
+  .brand .go{color:#7fe3ff} .brand sup{font-size:10px;opacity:.8}
+  .hero h2{margin:0 0 8px;font-size:27px;font-weight:800;letter-spacing:-.02em;line-height:1.18}
+  .hero p{margin:0;color:rgba(255,255,255,.86);font-size:14px;max-width:330px}
+
+  /* ---- form panel (right) ---- */
+  .panel{padding:48px 42px;display:flex;flex-direction:column;justify-content:center}
+  @media(max-width:760px){.panel{padding:34px 28px}}
+  .panel h1{margin:0 0 4px;font-size:26px;font-weight:800;letter-spacing:-.02em}
+  .panel .lead{margin:0 0 24px;color:var(--ink2);font-size:14px}
+
+  label{display:block;font-size:13px;font-weight:600;margin:0 0 6px;color:var(--ink)}
+  .field{margin-bottom:16px}
+  input{width:100%;padding:13px 14px;font:inherit;color:var(--ink);
+    background:var(--field);border:1px solid var(--line);border-radius:10px}
+  input:focus{outline:2px solid var(--blue);outline-offset:1px;background:#fff}
+
+  button.primary{width:100%;font:inherit;font-weight:700;color:#fff;background:var(--blue);
+    border:0;border-radius:10px;padding:14px;cursor:pointer;margin-top:4px;transition:background .15s,transform .15s}
+  button.primary:hover{background:var(--blue-deep);transform:translateY(-1px)}
+  button.primary:disabled{opacity:.6;cursor:default;transform:none}
+
+  .switch{margin-top:18px;font-size:14px;color:var(--ink2);text-align:center}
+  .switch a{color:var(--blue-deep);font-weight:600;text-decoration:none;cursor:pointer}
+  .switch a:hover{text-decoration:underline}
+
+  .msg{font-size:13.5px;margin:0 0 14px;min-height:18px}
+  .msg.err{color:#d0455f} .msg.ok{color:var(--blue-deep)}
+</style>
+</head>
+<body>
+  <div class="card">
+    <!-- hero -->
+    <div class="hero">
+      <div class="brand"><span class="go">AI</span> Travel Planner</div>
+      <div>
+        <h2>Plan smarter trips with AI&nbsp;agents.</h2>
+        <p>Budgets, transport, weather and a day-by-day itinerary — reconciled automatically.</p>
+      </div>
+    </div>
+
+    <!-- form -->
+    <div class="panel">
+      <h1 id="title">Welcome back</h1>
+      <p class="lead" id="lead">Sign in to plan your next trip.</p>
+
+      <p class="msg" id="msg"></p>
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" type="email" autocomplete="email" placeholder="you@example.com" />
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" />
+        <small id="pwHint" hidden style="display:block;margin-top:6px;color:#5b6b7a;font-size:12.5px">
+          At least 8 characters. Avoid common passwords and your email address.</small>
+      </div>
+
+      <button class="primary" id="submit">Sign in</button>
+
+      <p class="switch" id="switch">
+        New here? <a id="toggle">Create an account</a>
+      </p>
+    </div>
+  </div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  let mode = "login";   // "login" | "register"
+
+  function setMode(m) {
+    mode = m;
+    const login = m === "login";
+    $("title").textContent  = login ? "Welcome back" : "Create your account";
+    $("lead").textContent   = login ? "Sign in to plan your next trip." : "Sign up to start planning trips.";
+    $("submit").textContent = login ? "Sign in" : "Create account";
+    $("switch").innerHTML   = login
+      ? 'New here? <a id="toggle">Create an account</a>'
+      : 'Already have an account? <a id="toggle">Sign in</a>';
+    $("password").setAttribute("autocomplete", login ? "current-password" : "new-password");
+    $("pwHint").hidden = login;
+    $("toggle").onclick = () => setMode(login ? "register" : "login");
+    $("msg").textContent = "";
+  }
+
+  function showMsg(text, ok = false) {
+    const m = $("msg");
+    m.textContent = text;
+    m.className = "msg " + (ok ? "ok" : "err");
+  }
+
+  async function submit() {
+    const email = $("email").value.trim();
+    const password = $("password").value;
+    if (!email || !password) { showMsg("Please enter your email and password."); return; }
+
+    $("submit").disabled = true;
+    try {
+      const url = mode === "login" ? "/api/login" : "/api/register";
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await r.json();
+      if (!r.ok || data.error) throw new Error(data.error || ("HTTP " + r.status));
+      showMsg("Success — taking you in…", true);
+      window.location.href = "/";               // logged in: go to the planner
+    } catch (e) {
+      showMsg(e.message);
+    } finally {
+      $("submit").disabled = false;
+    }
+  }
+
+  $("submit").onclick = submit;
+  $("password").addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
+  $("email").addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
+  setMode("login");
+</script>
+</body>
+</html>

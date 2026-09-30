@@ -17,11 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()   # read .env from the current folder into the environment
 
 # Read each key once, here, so the rest of the app imports from one place.
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
-AMADEUS_API_KEY = os.getenv("AMADEUS_API_KEY")
-AMADEUS_API_SECRET = os.getenv("AMADEUS_API_SECRET")
+DUFFEL_ACCESS_TOKEN = os.getenv("DUFFEL_ACCESS_TOKEN")
 
 
 def require(name: str) -> str:
@@ -42,6 +38,5 @@ def require(name: str) -> str:
 if __name__ == "__main__":
     # A safe self-check: shows which keys are configured WITHOUT printing them.
     print("Key status (values never shown):")
-    for name in ["GROQ_API_KEY", "ANTHROPIC_API_KEY", "OPENWEATHER_API_KEY",
-                 "AMADEUS_API_KEY", "AMADEUS_API_SECRET"]:
+    for name in ["DUFFEL_ACCESS_TOKEN", "JWT_SECRET", "MYSQL_PASSWORD"]:
         print(f"  {name:22} {'set ✓' if os.getenv(name) else 'not set'}")
